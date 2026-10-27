@@ -1,0 +1,8 @@
+{
+  "name": "the-system-push",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-27",
+  "triggers": { "crons": ["*/5 * * * *"] },
+  "d1_databases": [{ "binding": "DB", "database_name": "the-system-push", "database_id": "REPLACE_WITH_D1_DATABASE_ID" }],
+  "vars": { "APP_ORIGIN": "https://REPLACE-WITH-YOUR-PAGES-DOMAIN.pages.dev" }
+}
