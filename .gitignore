@@ -1,0 +1,18 @@
+# Node.js dependencies
+node_modules/
+
+# Cloudflare Wrangler generated files
+.wrangler/
+
+# Local secrets
+.dev.vars
+.dev.vars.*
+.env
+.env.*
+
+# Logs
+*.log
+
+# Operating system files
+.DS_Store
+Thumbs.db
