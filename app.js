@@ -72,7 +72,7 @@ function xpTimeline(){return `<div class="section-head"><h2>XP history</h2></div
 function pageRewards(){let done=Object.values(state.records).flatMap(r=>r.quests||[]).filter(q=>q.done).length;let total=Object.values(state.records).flatMap(r=>r.quests||[]).length;let eligible=total>=10&&done/total>=.8;return `<div class="section-head"><h2>Rewards inventory</h2></div><div class="grid two"><section class="panel"><div class="eyebrow">Earned coins</div><div class="big-stat">${state.coins} <span>coins</span></div><p>Coins are in-app milestones, not currency.</p></section><section class="panel"><div class="eyebrow">Quest completion</div><div class="big-stat">${total?percent(done,total):0}<span>%</span></div><p>${done} of ${total} recorded quests completed</p></section></div><div class="section-head"><h2>Achievement vault</h2></div><div class="grid two"><section class="panel"><span class="pill ${state.xp>=100?'green':''}">${state.xp>=100?'Unlocked':'Locked'}</span><h3>First Awakening</h3><p>Earn 100 total XP.</p></section><section class="panel"><span class="pill ${streak()>=7?'green':''}">${streak()>=7?'Unlocked':'Locked'}</span><h3>Seven-Day Resolve</h3><p>Complete at least one quest for 7 consecutive days.</p></section><section class="panel"><span class="pill ${eligible?'green':''}">${eligible?'Unlocked':'Locked'}</span><h3>Cheat Meal Ticket</h3><p>Recognition for 80% quest completion after at least 10 logged assignments. Personal reward; no food rules enforced.</p></section><section class="panel"><span class="pill ${rankFor(state.weight)==='S'?'green':''}">${rankFor(state.weight)==='S'?'Unlocked':'Locked'}</span><h3>Shadow Monarch</h3><p>Reach the S-rank threshold defined in your plan.</p></section></div>${xpTimeline()}${achievementEditor()}`}
 function pagePlanner(){const opts=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];return `<div class="section-head"><h2>Quest scheduler</h2><span class="pill">${state.schedules.filter(x=>x.active!==false).length} active plans</span></div><section class="panel"><div class="eyebrow">Create recurring mission</div><p>Scheduled missions automatically appear on their assigned day, even if you close the app. A mission is generated when you next open The System.</p><form id="schedule-form"><div class="field"><label for="sched-title">Mission name</label><input id="sched-title" class="input" maxlength="100" placeholder="Example: Review coursework" required></div><div class="form-row"><div class="field"><label for="sched-repeat">Repeat</label><select id="sched-repeat" class="input"><option value="daily">Every day</option><option value="weekly">Every week</option><option value="once">One time</option></select></div><div class="field"><label for="sched-weekday">Weekly day</label><select id="sched-weekday" class="input">${opts.map((x,i)=>`<option value="${i}" ${i===weekday(today())?'selected':''}>${x}</option>`).join('')}</select></div></div><div class="form-row"><div class="field"><label for="sched-start">First date</label><input id="sched-start" class="input" type="date" value="${today()}" required></div><div class="field"><label for="sched-deadline">Deadline time (optional)</label><input id="sched-deadline" class="input" type="time"></div></div><div class="form-row"><div class="field"><label for="sched-stat">Attribute</label><select id="sched-stat" class="input">${Object.keys(state.stats).map(s=>`<option value="${s}">${s}</option>`).join('')}</select></div><div class="field"><label for="sched-xp">Difficulty</label><select id="sched-xp" class="input"><option value="10">Easy · 10 XP</option><option value="20" selected>Normal · 20 XP</option><option value="30">Hard · 30 XP</option></select></div></div><button class="btn" type="submit">Schedule mission</button></form></section><div class="section-head"><h2>Your schedule</h2></div><section class="panel"><div class="list">${state.schedules.map(s=>`<div class="quest"><div class="quest-main"><strong>${safe(s.title)}</strong><small>${s.repeat==='weekly'?opts[s.weekday]:s.repeat==='daily'?'Daily':'Once'} · From ${safe(s.start)}${s.deadline?' · '+safe(s.deadline):''} · ${s.xp} XP ${s.active===false?'· Paused':''}</small></div><button class="btn small secondary" data-action="toggle-schedule" data-id="${safe(s.id)}">${s.active===false?'Resume':'Pause'}</button><button class="btn small danger" data-action="delete-schedule" data-id="${safe(s.id)}">Delete</button></div>`).join('')||'<p class="empty">No missions scheduled yet.</p>'}</div><p class="footnote">Editing your schedule does not change missions already assigned for previous days.</p></section>`}
 function pageInbox(){return `<div class="section-head"><h2>System notification center</h2><span class="pill">${inboxUnread()} unread</span></div><section class="panel"><p class="footnote">Reminders and mission deadlines are recorded here while the app runs. Browser alerts are optional. For guaranteed alerts when the app is completely closed, a separate push service is required.</p><div class="top-actions"><button class="btn secondary" data-action="read-all">Mark all read</button><button class="btn ghost" data-action="clear-read">Clear read notices</button><button class="btn secondary" data-action="test-alert">Send test notice</button></div><div class="list">${state.inbox.map(n=>`<div class="quest ${n.read?'done':''}"><div class="quest-main"><strong>${safe(n.title)}</strong><p>${safe(n.body)}</p><small>${safe(new Date(n.date).toLocaleString())} · ${safe(n.kind)}</small></div>${n.read?'':`<button class="btn small secondary" data-action="read-notice" data-id="${safe(n.id)}">Read</button>`}</div>`).join('')||'<p class="empty">No System notices yet.</p>'}</div></section>`}
-function pageSettings(){return `<div class="section-head"><h2>System settings</h2></div><section class="panel"><form id="settings-form"><div class="field"><label for="setname">Hunter name</label><input class="input" id="setname" maxlength="50" value="${safe(state.name)}" required></div><div class="field"><label for="setgoal">Personal goal weight (kg)</label><input class="input" id="setgoal" type="number" min="20" max="500" step="0.1" value="${state.goal}"></div><button class="btn" type="submit">Save settings</button></form></section><div class="section-head"><h2>System alerts & accountability</h2></div><section class="panel"><form id="alert-form"><div class="field"><label for="reminder-time">Daily reminder time (your device time)</label><input class="input" type="time" id="reminder-time" value="${safe(state.settings?.reminderTime||'20:00')}"></div><div class="field"><label for="morning-time">Morning assignment reminder</label><input class="input" type="time" id="morning-time" value="${safe(state.settings?.morningTime||'08:00')}"></div><div class="field"><label><input type="checkbox" id="morning-reminders" ${state.settings?.morningReminders?'checked':''}> Enable morning check-in alerts</label></div><div class="field"><label><input type="checkbox" id="enable-reminders" ${state.settings?.reminders?'checked':''}> Enable in-app daily reminders</label></div><div class="field"><label><input type="checkbox" id="enable-penalties" ${state.settings?.penaltiesEnabled!==false?'checked':''}> Create recovery tasks for unfinished daily quests</label></div><div class="field"><label><input type="checkbox" id="deadline-alerts" ${state.settings?.deadlineAlerts?'checked':''}> Enable scheduled quest deadline alerts</label></div><div class="field"><label for="deadline-lead">Advance warning</label><select class="input" id="deadline-lead"><option value="15" ${Number(state.settings?.deadlineLead)===15?'selected':''}>15 minutes</option><option value="30" ${Number(state.settings?.deadlineLead||30)===30?'selected':''}>30 minutes</option><option value="60" ${Number(state.settings?.deadlineLead)===60?'selected':''}>60 minutes</option></select></div><div class="top-actions"><button class="btn" type="submit">Save alert preferences</button><button class="btn secondary" type="button" data-action="test-alert">Test notification</button></div></form><p class="footnote">Browser alerts require permission and normally work only while The System is open. Reliable notifications when the app is closed require a future push service. Your recovery tasks never subtract XP.</p></section><div class="section-head"><h2>System audio</h2></div><section class="panel"><p>Original synth sound effects play when you interact with the app. iPhone Web Push alert tones are controlled by iOS and cannot be replaced by website code.</p><div class="field"><label><input id="sfx-enabled" type="checkbox" ${window.SystemAudio?.get().enabled?'checked':''}> Enable interface sound effects</label></div><div class="field"><label for="sfx-volume">Effect volume</label><input class="input" type="range" id="sfx-volume" min="0" max="100" step="5" value="${window.SystemAudio?.get().volume??35}"></div><div class="field"><label for="sfx-profile">Sound style</label><select class="input" id="sfx-profile"><option value="arcane" ${window.SystemAudio?.get().profile==='arcane'?'selected':''}>Arcane / Hunter</option><option value="minimal" ${window.SystemAudio?.get().profile==='minimal'?'selected':''}>Minimal</option></select></div><div class="top-actions"><button class="btn secondary" data-action="test-sound" data-sound="quest" type="button">▶ Quest sound</button><button class="btn secondary" data-action="test-sound" data-sound="level" type="button">▶ Level up</button><button class="btn secondary" data-action="test-sound" data-sound="warning" type="button">▶ Warning</button></div><p class="footnote">Sounds work after you interact with the app. Silent Mode, browser audio permissions, and device volume can affect playback.</p></section><div class="section-head"><h2>Data control</h2></div><section class="panel"><p>All progress stays in this browser's local storage. It is not synced between devices. Export a backup before clearing browser data or changing phones.</p><p class="footnote">Last exported backup: ${safe(state.lastBackup?new Date(state.lastBackup).toLocaleString():'Not yet exported')} · Recommended: weekly</p><div class="top-actions"><button class="btn" data-action="export">Export JSON backup</button><label class="btn secondary" for="import-file" style="margin:0;cursor:pointer">Import backup</label><input id="import-file" type="file" accept="application/json,.json" class="sr-only"><button class="btn danger" data-action="reset">Reset all progress</button></div><hr class="divider"><p class="footnote">The System works offline after its first successful installation. There are no accounts, third-party analytics, or subscriptions.</p></section>`}
+function pageSettings(){return `<div class="section-head"><h2>System settings</h2></div><section class="panel"><form id="settings-form"><div class="field"><label for="setname">Hunter name</label><input class="input" id="setname" maxlength="50" value="${safe(state.name)}" required></div><div class="field"><label for="setgoal">Personal goal weight (kg)</label><input class="input" id="setgoal" type="number" min="20" max="500" step="0.1" value="${state.goal}"></div><button class="btn" type="submit">Save settings</button></form></section><div class="section-head"><h2>System alerts & accountability</h2></div><section class="panel"><form id="alert-form"><div class="field"><label for="reminder-time">Daily reminder time (your device time)</label><input class="input" type="time" id="reminder-time" value="${safe(state.settings?.reminderTime||'20:00')}"></div><div class="field"><label for="morning-time">Morning assignment reminder</label><input class="input" type="time" id="morning-time" value="${safe(state.settings?.morningTime||'08:00')}"></div><div class="field"><label><input type="checkbox" id="morning-reminders" ${state.settings?.morningReminders?'checked':''}> Enable morning check-in alerts</label></div><div class="field"><label><input type="checkbox" id="enable-reminders" ${state.settings?.reminders?'checked':''}> Enable in-app daily reminders</label></div><div class="field"><label><input type="checkbox" id="enable-penalties" ${state.settings?.penaltiesEnabled!==false?'checked':''}> Create recovery tasks for unfinished daily quests</label></div><div class="field"><label><input type="checkbox" id="deadline-alerts" ${state.settings?.deadlineAlerts?'checked':''}> Enable scheduled quest deadline alerts</label></div><div class="field"><label for="deadline-lead">Advance warning</label><select class="input" id="deadline-lead"><option value="15" ${Number(state.settings?.deadlineLead)===15?'selected':''}>15 minutes</option><option value="30" ${Number(state.settings?.deadlineLead||30)===30?'selected':''}>30 minutes</option><option value="60" ${Number(state.settings?.deadlineLead)===60?'selected':''}>60 minutes</option></select></div><div class="top-actions"><button class="btn" type="submit">Save alert preferences</button><button class="btn secondary" type="button" data-action="test-alert">Test notification</button></div></form><p class="footnote">Browser alerts require permission and normally work only while The System is open. For closed-app morning and evening reminders, enable V6 Background Push below and keep your deployed Cloudflare Worker configured. In-app deadline alerts require the app to be open. Your recovery tasks never subtract XP.</p></section><div class="section-head"><h2>System audio</h2></div><section class="panel"><p>Original synth sound effects play when you interact with the app. iPhone Web Push alert tones are controlled by iOS and cannot be replaced by website code.</p><div class="field"><label><input id="sfx-enabled" type="checkbox" ${window.SystemAudio?.get().enabled?'checked':''}> Enable interface sound effects</label></div><div class="field"><label for="sfx-volume">Effect volume</label><input class="input" type="range" id="sfx-volume" min="0" max="100" step="5" value="${window.SystemAudio?.get().volume??35}"></div><div class="field"><label for="sfx-profile">Sound style</label><select class="input" id="sfx-profile"><option value="arcane" ${window.SystemAudio?.get().profile==='arcane'?'selected':''}>Arcane / Hunter</option><option value="minimal" ${window.SystemAudio?.get().profile==='minimal'?'selected':''}>Minimal</option></select></div><div class="top-actions"><button class="btn secondary" data-action="test-sound" data-sound="quest" type="button">▶ Quest sound</button><button class="btn secondary" data-action="test-sound" data-sound="level" type="button">▶ Level up</button><button class="btn secondary" data-action="test-sound" data-sound="warning" type="button">▶ Warning</button></div><p class="footnote">Sounds work after you interact with the app. Silent Mode, browser audio permissions, and device volume can affect playback.</p></section><div class="section-head"><h2>Data control</h2></div><section class="panel"><p>All progress stays in this browser's local storage. It is not synced between devices. Export a backup before clearing browser data or changing phones.</p><p class="footnote">Last exported backup: ${safe(state.lastBackup?new Date(state.lastBackup).toLocaleString():'Not yet exported')} · Recommended: weekly</p><div class="top-actions"><button class="btn" data-action="export">Export JSON backup</button><label class="btn secondary" for="import-file" style="margin:0;cursor:pointer">Import backup</label><input id="import-file" type="file" accept="application/json,.json" class="sr-only"><button class="btn danger" data-action="reset">Reset all progress</button></div><hr class="divider"><p class="footnote">The System works offline after its first successful installation. There are no accounts, third-party analytics, or subscriptions.</p></section>`}
 
 function questTotals(){const entries=Object.values(state.records||{}).flatMap(r=>r.quests||[]);return {done:entries.filter(q=>q.done).length,total:entries.length}}
 function achievementsMetric(metric){const totals=questTotals();return metric==='quests'?totals.done:metric==='streak'?streak():metric==='level'?progress().level:state.xp}
@@ -180,7 +180,7 @@ render();document.addEventListener('visibilitychange',()=>{if(!document.hidden){
 
 
 /* ===== V8.5 HUNTER AWAKENING ===== */
-const APP_PUBLIC_VERSION='1.08.5';
+const APP_PUBLIC_VERSION='1.9.0';
 function normalizeV85(input){
  const x=input&&typeof input==='object'?input:{};
  return {
@@ -437,3 +437,223 @@ $('#app').addEventListener('submit',e=>{
 },false);
 render();
 splashOnce();
+
+
+/* ===== v1.9.0 Functional release: workouts, notification center, 75-day trials, navigation ===== */
+const workoutDefinitions=window.SystemWorkouts?.library||[];
+let subview={home:'overview',quests:'missions',growth:'movement',hunter:'profile'};
+let workoutView='library';
+let workoutFilter='All';
+let activeWorkout=null;
+let workoutTicker=null;
+let workoutDeadline=0;
+let workoutRemaining=0;
+let workoutPaused=true;
+function normalize190(x){
+ const y=x&&typeof x==='object'?x:{};
+ return {workoutSessions:Array.isArray(y.workoutSessions)?y.workoutSessions:[],
+  workoutAwards:y.workoutAwards&&typeof y.workoutAwards==='object'?y.workoutAwards:{},
+  trial:y.trial&&typeof y.trial==='object'?y.trial:null,
+  trialRewarded:Array.isArray(y.trialRewarded)?y.trialRewarded:[],
+  calibrated:!!y.calibrated};
+}
+state.v190=normalize190(state.v190);
+function pick(name,value){return String(value)===String(name)?'selected':''}
+function selection(value,current){return value===current?'active':''}
+function workStartOfDay(){return today()+'T00:00:00'}
+function beginWorkout(id){
+ const item=window.SystemWorkouts?.find(id);
+ if(!item)return;
+ clearInterval(workoutTicker);
+ activeWorkout={id:item.id,index:0,stage:'exercise',started:new Date().toISOString(),completed:0};
+ workoutView='session';workoutPaused=true;workoutRemaining=item.exercises[0].seconds;
+ render();startWorkoutTimer();
+}
+function startWorkoutTimer(){
+ if(!activeWorkout)return;
+ const item=window.SystemWorkouts?.find(activeWorkout.id);
+ if(!item)return;
+ const ex=item.exercises[activeWorkout.index];
+ if(!ex)return;
+ clearInterval(workoutTicker);
+ workoutPaused=false;
+ workoutDeadline=Date.now()+workoutRemaining*1000;
+ const tick=()=>{
+  if(!activeWorkout||workoutPaused)return;
+  workoutRemaining=Math.max(0,Math.ceil((workoutDeadline-Date.now())/1000));
+  const node=document.querySelector('#workout-countdown');if(node)node.textContent=formatClock(workoutRemaining);
+  if(workoutRemaining===0){clearInterval(workoutTicker);workoutPaused=true;window.SystemAudio?.play('tap');notify('Interval finished. Mark done when ready.');}
+ };
+ workoutTicker=setInterval(tick,250);tick();
+}
+function pauseWorkoutTimer(){
+ if(!activeWorkout)return;
+ workoutRemaining=Math.max(0,Math.ceil((workoutDeadline-Date.now())/1000));
+ workoutPaused=true;clearInterval(workoutTicker);
+ render();
+}
+function formatClock(v){return `${Math.floor(v/60)}:${String(v%60).padStart(2,'0')}`}
+function nextWorkoutExercise(){
+ if(!activeWorkout)return;
+ const item=window.SystemWorkouts?.find(activeWorkout.id);if(!item)return;
+ clearInterval(workoutTicker);
+ if(activeWorkout.stage==='rest'){
+  activeWorkout.stage='exercise';activeWorkout.index++;
+  workoutRemaining=item.exercises[activeWorkout.index].seconds;workoutPaused=true;
+  render();startWorkoutTimer();return;
+ }
+ activeWorkout.completed++;
+ if(activeWorkout.index+1>=item.exercises.length){finishWorkout(item);return;}
+ activeWorkout.stage='rest';workoutRemaining=25;workoutPaused=true;
+ render();startWorkoutTimer();
+}
+function finishWorkout(item){
+ clearInterval(workoutTicker);
+ const d=today();
+ state.v190.workoutSessions.unshift({id:crypto.randomUUID(),routineId:item.id,title:item.title,date:d,completedAt:new Date().toISOString(),segments:activeWorkout?.completed||item.exercises.length});
+ state.v190.workoutSessions=state.v190.workoutSessions.slice(0,300);
+ if(!state.v190.workoutAwards[d]){
+  state.v190.workoutAwards[d]=true;award(item.xp,item.region==='Recovery'?'agility':'endurance',`Workout: ${item.title}`);
+ }
+ const day=state.v8.fitness.find(f=>f.date===d&&f.type===`Workout: ${item.title}`);
+ if(!day){state.v8.fitness.push({date:d,type:`Workout: ${item.title}`,reps:item.exercises.length,effort:'moderate',note:'Completed guided session'});state.v8.fitness=state.v8.fitness.slice(-500)}
+ if(item.region==='Recovery')state.v8.recovery[d]=true;
+ log(`Guided workout finished: ${item.title}`);
+ addInbox('WORKOUT COMPLETED',`${item.title} logged for today.`, 'fitness',`workout-${d}-${item.id}`);
+ activeWorkout=null;workoutView='library';save();render();notify('Workout saved. Great work!');window.SystemAudio?.play('achievement');
+}
+function workoutCards(){
+ const items=workoutDefinitions.filter(w=>workoutFilter==='All'||w.region===workoutFilter);
+ return `<div class="section-head"><h2>Home Workouts</h2><span class="pill">Original guided routines</span></div>
+ <section class="panel"><p>Choose a bodyweight routine suited to your energy and experience. Sessions include a warm-up or gentle start, guided movements, a timer, and a cool-down. Stop for pain, dizziness or loss of balance.</p><div class="filter-strip">${['All','Full Body','Upper Body','Lower Body','Core','Cardio','Recovery'].map(f=>`<button type="button" class="filter-chip ${workoutFilter===f?'active':''}" data-action="workout-filter" data-filter="${safe(f)}">${safe(f)}</button>`).join('')}</div></section>
+ <div class="workout-grid">${items.map(item=>`<section class="panel workout-card"><div class="workout-icon">${item.region==='Recovery'?'✧':'⚔'}</div><div class="eyebrow">${safe(item.region)} · ${safe(item.level)}</div><h3>${safe(item.title)}</h3><p>${safe(item.description)}</p><div class="spread"><small>${item.exercises.length} guided movements · ${Math.ceil(item.exercises.reduce((a,e)=>a+e.seconds,0)/60)} min active + rests</small><span class="xp">+${item.xp} XP*</span></div><div class="top-actions"><button class="btn" type="button" data-action="workout-start" data-id="${safe(item.id)}">Start session</button></div></section>`).join('')}</div>
+ <section class="panel"><h3>Workout history</h3>${state.v190.workoutSessions.slice(0,8).map(w=>`<div class="log-item"><span>${safe(w.title)} · ${safe(w.date)}</span><strong>✓ Done</strong></div>`).join('')||'<p class="empty">Your first guided workout will appear here.</p>'}<p class="footnote">*Workout XP is capped at one guided session reward per day. Extra safe activity is still logged. No exercise is required to protect your data or access the app.</p></section>`;
+}
+function workoutSession(){
+ if(!activeWorkout){workoutView='library';return workoutCards()}
+ const item=window.SystemWorkouts?.find(activeWorkout.id);if(!item){activeWorkout=null;return workoutCards()}
+ const ex=item.exercises[activeWorkout.index];
+ const pct=Math.round((activeWorkout.index/item.exercises.length)*100);
+ const resting=activeWorkout.stage==='rest';
+ return `<div class="section-head"><h2>${safe(item.title)}</h2><span class="pill">${activeWorkout.index+1} / ${item.exercises.length}</span></div>
+ <section class="panel workout-player"><div class="eyebrow">[ ${resting?'RECOVERY INTERVAL':'TRAINING SESSION ACTIVE'} ]</div><h2>${resting?'Rest and breathe':safe(ex.name)}</h2><p>${resting?'Take a short break. Pause longer if you need to recover.':safe(ex.instruction)}</p><div class="workout-clock" id="workout-countdown">${formatClock(workoutRemaining)}</div><div class="progress"><i style="width:${pct}%"></i></div><p class="footnote">Move comfortably; you can pause, repeat, or skip any interval. The countdown is a guide, not a requirement.</p><div class="top-actions"><button class="btn secondary" data-action="workout-pause">${workoutPaused?'Resume':'Pause'}</button><button class="btn" data-action="workout-next">${resting?'Start next movement':activeWorkout.index+1>=item.exercises.length?'Complete session':'Movement done · rest'}</button><button class="btn ghost" data-action="workout-stop">End without reward</button></div></section>
+ <section class="panel"><h3>Routine order</h3>${item.exercises.map((e,i)=>`<div class="log-item"><span>${i<activeWorkout.index?'✓ ':i===activeWorkout.index?'▶ ':'○ '}${safe(e.name)}</span><small>${e.seconds} s</small></div>`).join('')}</section>`;
+}
+function dayCompleted(d){
+ const rec=state.records[d];return !!((rec?.quests||[]).some(q=>q.done)||state.v8.recovery[d]||state.v190.workoutSessions.some(w=>w.date===d));
+}
+const trialTypes={adapt:{title:'75 Adapt',desc:'Personalized consistency with flexible recovery.'},discipline:{title:'75 Discipline',desc:'Balanced quests, movement, and personal routines.'},ascension:{title:'75 Ascension',desc:'Advanced consistency challenge that still respects recovery.'}};
+function trialProgress(){return state.v190.trial?Object.keys(state.v190.trial.days||{}).length:0}
+function milestoneXP(day){return ({7:60,15:100,30:160,50:250,75:400})[day]||0}
+function trialPage(){
+ const t=state.v190.trial;
+ return `<div class="section-head"><h2>75-Day Hunter Trials</h2><span class="pill">Optional</span></div><section class="panel"><p>Choose an original 75-day path. These are flexible System challenges, not the official 75 Hard program. Recovery counts when planned; no forced restarts for missed days.</p>${t?`<div class="eyebrow">ACTIVE CHALLENGE</div><h3>${safe(trialTypes[t.type]?.title||'75-Day Trial')}</h3><div class="big-stat">${trialProgress()} <span>/ 75 days</span></div><div class="progress"><i style="width:${percent(trialProgress(),75)}%"></i></div><p>${safe(trialTypes[t.type]?.desc||'')}</p><div class="top-actions"><button class="btn" data-action="trial-checkin" ${t.days?.[today()]||!dayCompleted(today())?'disabled':''}>${t.days?.[today()]?'✓ Today counted':!dayCompleted(today())?'Complete a quest or recovery check-in first':'Record today’s trial day'}</button><button class="btn secondary" data-action="trial-end">End challenge</button></div><p class="footnote">Progress uses your existing daily quests, workout, or recovery check-in as evidence. At most one day is counted per calendar date.</p>`:
+ `<div class="trial-choice-grid">${Object.entries(trialTypes).map(([id,d])=>`<div class="trial-option"><h3>${safe(d.title)}</h3><p>${safe(d.desc)}</p><button class="btn" data-action="trial-start" data-id="${id}">Start trial</button></div>`).join('')}</div>`}</section>
+ <section class="panel"><h3>Milestone rewards</h3>${[7,15,30,50,75].map(d=>`<div class="log-item"><span>Day ${d}</span><strong>+${milestoneXP(d)} XP</strong></div>`).join('')}<p class="footnote">A challenge can be ended at any time. No financial or health penalties apply.</p></section>`;
+}
+function reminderCard(){
+ const enrolled=localStorage.getItem('the-system-push-enabled')==='true';
+ return `<div class="section-head"><h2>Notification Center</h2><span class="pill">${inboxUnread()} unread</span></div><section class="panel"><div class="spread"><div><h3>Background push</h3><p>${pushApi()?'Worker URL configured':'Worker URL missing: check push-config.js'}</p></div><span class="pill ${enrolled?'green':'red'}">${enrolled?'Enrolled flag set':'Not enrolled'}</span></div>
+ <p class="footnote">Your existing Cloudflare Worker still sends generic morning and evening pushes. Scheduled quest and Gate alerts currently appear while The System is running; closed-app event-specific pushes need a separate Worker upgrade.</p><div class="top-actions"><button class="btn secondary" data-action="push-enable">Enable / resync push</button><button class="btn secondary" data-action="push-test">Send iPhone test push</button><button class="btn danger" data-action="push-disable">Disable push</button></div>
+ <p class="footnote">If the iPhone is enrolled but no banner appears, verify Home Screen installation, iOS notification permissions and Focus settings.</p></section>${pageInbox()}`;
+}
+function editProfilePage(){
+ const p=state.v85.profile;
+ return `<div class="section-head"><h2>Personalize your System</h2><span class="pill">Recalibrate</span></div><section class="panel"><p>Your free days and training level affect future assigned quests and optional Gate Events. Existing completed progress and XP remain saved.</p><form id="calibrate-form"><div class="form-row"><div class="field"><label>Primary focus</label><select class="input" id="cal-objective"><option value="hybrid" ${pick('hybrid',p.objective)}>Hybrid</option><option value="fitness" ${pick('fitness',p.objective)}>Fitness</option><option value="productivity" ${pick('productivity',p.objective)}>Productivity</option></select></div><div class="field"><label>Training level</label><select class="input" id="cal-level"><option value="beginner" ${pick('beginner',p.fitnessLevel)}>Beginner / returning</option><option value="intermediate" ${pick('intermediate',p.fitnessLevel)}>Intermediate</option><option value="advanced" ${pick('advanced',p.fitnessLevel)}>Advanced</option></select></div></div><div class="form-row"><div class="field"><label>Session duration</label><select class="input" id="cal-duration">${[10,20,30,45].map(v=>`<option value="${v}" ${pick(v,p.duration)}>${v} min</option>`).join('')}</select></div><div class="field"><label>Equipment</label><select class="input" id="cal-equipment">${['none','basic','gym'].map(v=>`<option value="${v}" ${pick(v,p.equipment)}>${v==='none'?'Bodyweight only':v==='basic'?'Basic home equipment':'Gym'}</option>`).join('')}</select></div></div><div class="field"><label>Available days for training and Gate Events</label><div class="radio-row">${dayNames.map((d,i)=>`<label><input type="checkbox" name="cal-days" value="${i}" ${(p.freeDays||[]).includes(i)?'checked':''}>${d.slice(0,3)}</label>`).join('')}</div></div><button type="submit" class="btn">Save Hunter calibration</button><p class="footnote">Changing your profile does not erase completed quests. New daily assignments use updated settings starting tomorrow.</p></form></section>`;
+}
+function pageHome190(){
+ const existing=pageHome85();
+ return existing+`<div class="section-head"><h2>Training grounds</h2><button class="btn ghost" data-view="workouts" data-section="quests">Browse workouts →</button></div><section class="panel"><h3>Guided Home Workouts</h3><p>Original bodyweight sessions, adaptive difficulty, progress history and safe recovery.</p><button class="btn" data-view="workouts" data-section="quests">Open training library</button></section>`;
+}
+const subMenus={
+ home:[['overview','Overview']],quests:[['missions','Missions'],['workouts','Workouts'],['events','Gate Events'],['trials','75-Day Trials'],['planner','Planner']],
+ growth:[['movement','Steps'],['habits','Habits'],['status','Stats'],['analytics','Insights'],['achievements','Achievements']],
+ hunter:[['profile','Profile'],['notices','Notices'],['settings','Settings'],['support','Support']]
+};
+function choosePage(){
+ if(tab==='home')return pageHome190();
+ if(tab==='quests')return ({missions:pageQuests,workouts:()=>workoutView==='session'?workoutSession():workoutCards(),events:()=>`<div class="section-head"><h2>Gate Events</h2></div>${ensureTodayEvent()?eventCard(ensureTodayEvent()):'<section class="panel"><p>No event is active today. Events can appear on days you selected as free.</p></section>'}`,trials:trialPage,planner:pagePlanner})[subview.quests]?.()||pageQuests();
+ if(tab==='growth')return ({movement:stepPanel,habits:pageHabits,status:pageStatus,analytics:pageAnalytics,achievements:pageRewards})[subview.growth]?.()||stepPanel();
+ return ({profile:()=>profileSummary()+editProfilePage(),notices:reminderCard,settings:pageSettings,support:()=>`<div class="section-head"><h2>Support the System</h2></div><section class="panel"><h3>Built by Dynaframe Studios</h3><p>The app is free. Optional real-money contributions are planned, but no payment checkout is active. No XP or Hunter Rank is for sale.</p></section>`})[subview.hunter]?.()||profileSummary();
+}
+shell=function(){
+ syncDay();
+ const title=nav85.find(x=>x[0]===tab)?.[2]||'Home';
+ const tabs=subMenus[tab]||[];
+ $('#app').innerHTML=`<div class="app-shell"><aside class="side"><div class="brand">THE SYSTEM<span>by Dynaframe Studios · v ${APP_PUBLIC_VERSION}</span></div><div class="nav">${nav85.map(([id,ico,name])=>`<button class="nav-item ${tab===id?'active':''}" data-tab="${id}"><span>${ico}</span>${name}</button>`).join('')}</div></aside><main class="main"><div class="topline"><span class="system-tag">◈ THE SYSTEM</span><span>${safe(title)} · ${new Date().toLocaleDateString()} <button class="notice-link" data-view="notices" data-section="hunter" aria-label="Open notices">♧ ${inboxUnread()} notices</button></span></div><div class="subnav" aria-label="${safe(title)} sections">${tabs.map(([id,label])=>`<button type="button" class="subnav-button ${subview[tab]===id?'active':''}" data-view="${id}">${safe(label)}</button>`).join('')}</div>${choosePage()}<footer class="system-footer">The System · by Dynaframe Studios · v ${APP_PUBLIC_VERSION}</footer></main><nav class="bottom-nav" aria-label="Main navigation">${nav85.map(([id,ico,name])=>`<button class="${tab===id?'active':''}" data-tab="${id}"><span class="ico">${ico}</span>${name}</button>`).join('')}</nav></div>`;
+};
+// Capture navigation before the legacy handler and route into one of four top-level destinations.
+$('#app').addEventListener('click',e=>{
+ const b=e.target.closest('[data-view]');if(!b)return;
+ e.stopImmediatePropagation();
+ if(b.dataset.section)tab=b.dataset.section;
+ if(subMenus[tab]?.some(x=>x[0]===b.dataset.view))subview[tab]=b.dataset.view;
+ render();
+},true);
+// Handle v1.9 actions before the original general handlers.
+$('#app').addEventListener('click',e=>{
+ const b=e.target.closest('[data-action]');if(!b)return;
+ const act=b.dataset.action;
+ const ours=['workout-start','workout-next','workout-pause','workout-stop','workout-filter','trial-start','trial-checkin','trial-end'];
+ if(!ours.includes(act))return;
+ e.stopImmediatePropagation();
+ if(act==='workout-filter'){workoutFilter=b.dataset.filter||'All';render();}
+ if(act==='workout-start')beginWorkout(b.dataset.id);
+ if(act==='workout-next')nextWorkoutExercise();
+ if(act==='workout-pause'){if(workoutPaused)startWorkoutTimer();else pauseWorkoutTimer();render();}
+ if(act==='workout-stop'){if(confirm('End this workout without awarding XP?')){clearInterval(workoutTicker);activeWorkout=null;workoutView='library';render();}}
+ if(act==='trial-start'){
+  if(state.v190.trial)return notify('End your current trial first');
+  const type=b.dataset.id;if(!trialTypes[type])return;
+  state.v190.trial={type,started:today(),days:{}};state.v190.trialRewarded=[];save();render();notify('Hunter Trial started');
+ }
+ if(act==='trial-end'){
+  if(confirm('End this trial? Logged quest and workout progress will remain, but the trial counter will reset.')){state.v190.trial=null;state.v190.trialRewarded=[];save();render();}
+ }
+ if(act==='trial-checkin'){
+  const t=state.v190.trial;if(!t||t.days[today()]||!dayCompleted(today()))return;
+  t.days[today()]=true;const n=trialProgress();const milestone=milestoneXP(n);
+  if(milestone&&!state.v190.trialRewarded.includes(n)){
+   state.v190.trialRewarded.push(n);award(milestone,'discipline',`75-Day Trial · Day ${n}`);
+   addInbox('TRIAL MILESTONE',`You've completed ${n} eligible days. +${milestone} XP.`, 'achievement',`trial-${t.started}-${n}`);
+  }
+  save();render();notify(`Trial progress: ${n}/75 days`);
+ }
+},true);
+// Supplement onboarding and save settings without overwriting legacy save structures.
+$('#app').addEventListener('submit',e=>{
+ if(e.target.id!=='calibrate-form')return;
+ e.preventDefault();e.stopImmediatePropagation();
+ const form=e.target;
+ const days=[...form.querySelectorAll('[name="cal-days"]:checked')].map(n=>Number(n.value));
+ state.v85.profile={...state.v85.profile,objective:$('#cal-objective').value,fitnessLevel:$('#cal-level').value,duration:Number($('#cal-duration').value),equipment:$('#cal-equipment').value,freeDays:days};
+ state.v190.calibrated=true;
+ save();render();notify('Hunter profile updated. New assignments will follow your schedule.');
+},true);
+// Normalize data after an imported backup; original import handler runs asynchronously.
+$('#app').addEventListener('change',e=>{
+ if(e.target.id!=='import-file')return;
+ setTimeout(()=>{
+  state.v85=normalizeV85(state.v85);
+  state.v190=normalize190(state.v190);
+  if(!nav85.some(x=>x[0]===tab))tab='home';
+  save();render();
+ },500);
+},false);
+// Avoid stale v1.9 fields after a full reset.
+$('#app').addEventListener('click',e=>{
+ const b=e.target.closest('[data-action="reset"]');if(!b)return;
+ setTimeout(()=>{state.v85=normalizeV85(state.v85);state.v190=normalize190(state.v190);tab='home';render()},50);
+},false);
+// Bring the notification inbox back, and ensure push prefs are synchronized when the app comes online.
+let lastPushRefresh=0;
+async function refreshPush190(){
+ if(!state.name||!pushApi()||localStorage.getItem('the-system-push-enabled')!=='true'||!navigator.onLine)return;
+ if(Date.now()-lastPushRefresh<3600000)return;
+ lastPushRefresh=Date.now();
+ try{await pushSync()}catch(e){console.warn('Push refresh:',e)}
+}
+window.addEventListener('online',refreshPush190);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshPush190()});
+setTimeout(refreshPush190,3500);
+render();

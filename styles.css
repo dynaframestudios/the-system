@@ -10,3 +10,21 @@
 
 /* V8.5 */
 .splash-screen{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;background:radial-gradient(circle at 50% 20%,#42206b 0%,#140e25 45%,#07050f 100%);transition:opacity .45s ease,visibility .45s ease}.splash-screen.hide{opacity:0;visibility:hidden}.splash-logo{text-align:center;padding:28px;max-width:360px}.splash-mark{width:96px;height:96px;display:block;margin:0 auto 18px;filter:drop-shadow(0 0 20px #b386ff88)}.splash-title{font:700 42px Rajdhani,Inter,sans-serif;letter-spacing:4px}.splash-sub{color:var(--violet);letter-spacing:4px;font-size:12px;font-weight:700}.splash-loading{margin-top:20px;color:#d7c7f7;font-size:12px;letter-spacing:2px}.splash-footer{margin-top:24px;color:var(--muted);font-size:12px}.radio-row label{display:flex;align-items:center;gap:8px}.radio-row label input{width:auto}.brand span{line-height:1.5}
+/* v1.9.0 — navigation, guided workout library, trials, and notice controls */
+:root{--focus:#d2a5ff}
+.subnav{display:flex;gap:9px;overflow-x:auto;scrollbar-width:none;padding:0 1px 16px;margin:-4px 0 8px;align-items:center}.subnav::-webkit-scrollbar{display:none}
+.subnav-button,.filter-chip{flex:none;white-space:nowrap;color:#beaddc;background:#1c1530;border:1px solid #46335e;padding:9px 14px;border-radius:999px;min-height:40px;font-size:12px;font-weight:700}
+.subnav-button.active,.filter-chip.active{color:#fff;background:linear-gradient(120deg,#7440c3,#39225f);border-color:#a279e9}
+.notice-link{background:transparent;border:1px solid #52406b;border-radius:99px;padding:5px 8px;color:#d9bdff;font-size:11px;letter-spacing:0}
+.system-footer{text-align:center;font-size:11px;color:#9386b3;padding:38px 0 10px}
+.filter-strip{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.workout-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;margin:17px 0}
+.workout-card{display:flex;flex-direction:column;gap:9px;min-height:245px}
+.workout-card h3{margin-bottom:0}.workout-card p{flex:1}.workout-card .top-actions{margin-top:8px}
+.workout-icon{width:45px;height:45px;display:grid;place-items:center;background:#362353;color:#d5b1ff;border-radius:12px;font-size:25px}
+.workout-player{text-align:center;padding:35px 25px}.workout-player h2{font-size:34px;margin:15px 0}.workout-player p{max-width:580px;margin:0 auto}.workout-clock{font:700 clamp(70px,14vw,125px) Rajdhani,Inter,sans-serif;color:#e5d0ff;text-shadow:0 0 34px #8840e688;margin:12px auto;letter-spacing:.035em}.workout-player .top-actions{justify-content:center}
+.trial-choice-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.trial-option{background:#191127;border:1px solid #4f376c;border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:12px}.trial-option p{flex:1}.trial-option h3{margin:0}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--focus);outline-offset:3px}
+@media(max-width:850px){.main{padding-top:20px}.topline{font-size:11px;letter-spacing:0}.bottom-nav{overflow:visible;justify-content:space-around;gap:2px}.bottom-nav button{flex:1;min-width:0;font-size:12px;padding:7px 0}.bottom-nav .ico{font-size:23px}}
+@media(max-width:650px){.workout-grid,.trial-choice-grid{grid-template-columns:1fr}.workout-card{min-height:0}.workout-player .top-actions .btn{flex:1}.topline{flex-wrap:wrap}.onboarding-card .radio-row label{min-width:68px;flex:0 0 calc(33.333% - 8px)}.subnav-button{padding:9px 11px}}
+@media(prefers-reduced-motion:reduce){.splash-screen{transition:none}}
