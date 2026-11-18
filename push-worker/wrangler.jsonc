@@ -3,6 +3,6 @@
   "main": "src/index.js",
   "compatibility_date": "2026-10-27",
   "triggers": { "crons": ["*/5 * * * *"] },
-  "d1_databases": [{ "binding": "DB", "database_name": "the-system-push", "database_id": "REPLACE_WITH_D1_DATABASE_ID" }],
-  "vars": { "APP_ORIGIN": "https://REPLACE-WITH-YOUR-PAGES-DOMAIN.pages.dev" }
+  "d1_databases": [{ "binding": "DB", "database_name": "the-system-push", "database_id": "8748c3ec-7446-47b2-8d88-76adec9c5cdb" }],
+  "vars": { "APP_ORIGIN": "https://the-system.dynaframe.workers.dev" }
 }

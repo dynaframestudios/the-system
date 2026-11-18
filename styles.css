@@ -28,3 +28,6 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 @media(max-width:850px){.main{padding-top:20px}.topline{font-size:11px;letter-spacing:0}.bottom-nav{overflow:visible;justify-content:space-around;gap:2px}.bottom-nav button{flex:1;min-width:0;font-size:12px;padding:7px 0}.bottom-nav .ico{font-size:23px}}
 @media(max-width:650px){.workout-grid,.trial-choice-grid{grid-template-columns:1fr}.workout-card{min-height:0}.workout-player .top-actions .btn{flex:1}.topline{flex-wrap:wrap}.onboarding-card .radio-row label{min-width:68px;flex:0 0 calc(33.333% - 8px)}.subnav-button{padding:9px 11px}}
 @media(prefers-reduced-motion:reduce){.splash-screen{transition:none}}
+
+/* v1.09.1 notification command */
+.notif-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:16px 0}.notif-setting{display:flex;gap:10px;align-items:flex-start;background:#191129;border:1px solid #493264;border-radius:11px;padding:13px;margin:0;color:#f4eaff}.notif-setting input{margin-top:3px;accent-color:#ae78ff}.notif-setting span{display:flex;flex-direction:column;gap:5px}.notif-setting small{font-weight:400;line-height:1.5}@media(max-width:550px){.notif-grid{grid-template-columns:1fr}}

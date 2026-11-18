@@ -657,3 +657,51 @@ window.addEventListener('online',refreshPush190);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshPush190()});
 setTimeout(refreshPush190,3500);
 render();
+
+
+/* ===== v1.09.1 Notification Command ===== */
+const NOTIFY191_DEFAULT={steps:true,workout:true,gate:true,streak:false,hydration:false,trial:false,reminderTime:'20:00',workoutTime:'17:00',hydrationTime:'13:00',quietEnabled:true,quietStart:'22:00',quietEnd:'07:00'};
+state.notify191={...NOTIFY191_DEFAULT,...(state.notify191||{})};
+const originalReminderCard191=reminderCard;
+reminderCard=function(){const x={...NOTIFY191_DEFAULT,...(state.notify191||{})};
+ const check=(id,label,desc)=>`<label class="notif-setting"><input type="checkbox" id="nt-${id}" ${x[id]?'checked':''}><span><strong>${label}</strong><small>${desc}</small></span></label>`;
+ return `<div class="section-head"><h2>Notification Command</h2><span class="pill">v1.09.1</span></div><section class="panel"><div class="eyebrow">STERN, NOT STRICT</div><h3>Alerts you control</h3><p>Set your preferences below. The System provides useful reminders, never punishment for ignoring a notification.</p><form id="notify191-form">
+ <div class="notif-grid">${check('steps','Step logging','Have you logged your steps today?')}${check('workout','Workout window','Only on your available days')}${check('gate','Gate invitations','Check the app for optional events')}${check('streak','Daily progress','Gentle reminder about unfinished goals')}${check('hydration','Hydration','Optional water check-in')}${check('trial','75-Day Trials','Optional challenge check-ins')}</div>
+ <div class="form-row"><div class="field"><label for="nt-reminderTime">Evening / steps</label><input class="input" id="nt-reminderTime" type="time" value="${safe(x.reminderTime)}"></div><div class="field"><label for="nt-workoutTime">Training / Gate</label><input class="input" id="nt-workoutTime" type="time" value="${safe(x.workoutTime)}"></div></div>
+ <div class="field"><label for="nt-hydrationTime">Hydration check-in time</label><input class="input" id="nt-hydrationTime" type="time" value="${safe(x.hydrationTime)}"></div>
+ <label class="notif-setting"><input type="checkbox" id="nt-quietEnabled" ${x.quietEnabled?'checked':''}><span><strong>Respect quiet hours</strong><small>No new scheduled reminders during these hours</small></span></label>
+ <div class="form-row"><div class="field"><label for="nt-quietStart">Quiet hours start</label><input class="input" id="nt-quietStart" type="time" value="${safe(x.quietStart)}"></div><div class="field"><label for="nt-quietEnd">Quiet hours end</label><input class="input" id="nt-quietEnd" type="time" value="${safe(x.quietEnd)}"></div></div>
+ <button class="btn" type="submit">Save and sync alert settings</button></form><p class="footnote">A device must first be enrolled. These options require the v1.09.1 Worker upgrade for closed-app delivery. Reminders can be delayed, and device settings may silence them. iOS controls push alert sounds.</p></section>${originalReminderCard191()}`;
+};
+function notify191Payload(){const x=state.notify191;return {...x,freeDays:(state.v85?.profile?.freeDays||[]).map(Number)}}
+async function syncNotify191(){
+ if(!pushApi()||localStorage.getItem('the-system-push-enabled')!=='true')return false;
+ await pushRequest('/api/notification-prefs','POST',notify191Payload());
+ if(state.v85?.steps?.[today()]!==undefined)await sendStepCheckin191(today());
+ return true;
+}
+async function sendStepCheckin191(date){
+ if(!pushApi()||localStorage.getItem('the-system-push-enabled')!=='true')return;
+ return pushRequest('/api/step-checkin','POST',{date,logged:true});
+}
+const originalPushEnable191=pushEnable;
+pushEnable=async function(){await originalPushEnable191();await syncNotify191();return true};
+$('#app').addEventListener('submit',e=>{
+ if(e.target.id!=='notify191-form')return;
+ e.preventDefault();e.stopImmediatePropagation();
+ const keys=['steps','workout','gate','streak','hydration','trial'];
+ const x={...state.notify191};keys.forEach(k=>x[k]=!!document.getElementById('nt-'+k)?.checked);
+ for(const k of ['reminderTime','workoutTime','hydrationTime','quietStart','quietEnd'])x[k]=document.getElementById('nt-'+k)?.value||NOTIFY191_DEFAULT[k];
+ x.quietEnabled=!!document.getElementById('nt-quietEnabled')?.checked;
+ state.notify191=x;save();render();
+ syncNotify191().then(ok=>notify(ok?'Notifications saved and synced':'Saved locally. Enable background push to sync.')).catch(err=>notify('Saved locally. Sync failed: '+err.message));
+},true);
+$('#app').addEventListener('submit',e=>{
+ if(e.target.id!=='step-form')return;
+ const date=e.target.querySelector('#step-date')?.value;
+ if(!date||date!==today())return;
+ setTimeout(()=>{if(state.v85?.steps?.[date]!==undefined)sendStepCheckin191(date).catch(err=>console.warn('Step check-in not synced',err));},150);
+},false);
+// Deep-link opened from a push notification, using only safe known section names.
+function openNotifyDeepLink191(){const target=(location.hash||'').slice(1);if(!['home','quests','growth','hunter'].includes(target))return;if(!state.name)return;tab=target;subview[target]=target==='growth'?'movement':target==='hunter'?'notices':subview[target];render();}
+window.addEventListener('hashchange',openNotifyDeepLink191);setTimeout(openNotifyDeepLink191,100);
