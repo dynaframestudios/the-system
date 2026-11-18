@@ -6,6 +6,9 @@ const safe=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'
 const rankFor=w=>w>=90?'E':w>=85?'D':w>=80?'C':w>=75?'B':w>=70?'A':'S';
 const levelFor=x=>{let level=1,remaining=x;while(remaining>=40*level&&level<999){remaining-=40*level;level++}return {level,remaining,needed:40*level}};
 const newState=()=>({version:1,created:today(),name:'',weight:99,goal:68,mode:'hybrid',trainingCycle:0,cycleDay:'',xp:0,coins:0,stats:{strength:1,endurance:1,discipline:1,intelligence:1,agility:1},quests:[],records:{},weighIns:[],logs:[],penalties:[],claimed:[],schedules:[],xpHistory:[],settings:{reminders:false,reminderTime:'20:00',morningTime:'08:00',morningReminders:false,penaltiesEnabled:true,graceDays:0,deadlineAlerts:false,deadlineLead:30}});
+
+// V8 state lives inside the existing save key and is included in normal JSON backup.
+function normalizeV8(input){const x=input&&typeof input==='object'?input:{};return {waterGoal:Number.isFinite(Number(x.waterGoal))&&Number(x.waterGoal)>=500&&Number(x.waterGoal)<=5000?Number(x.waterGoal):2000,water:x.water&&typeof x.water==='object'?x.water:{},fitness:Array.isArray(x.fitness)?x.fitness:[],recovery:x.recovery&&typeof x.recovery==='object'?x.recovery:{},waterAwarded:x.waterAwarded&&typeof x.waterAwarded==='object'?x.waterAwarded:{},lastWater:x.lastWater||null,reflections:Array.isArray(x.reflections)?x.reflections:[],ascended:!!x.ascended,ascendedAt:x.ascendedAt||null}}
 let state;try{state={...newState(),...JSON.parse(localStorage.getItem(KEY)||'null')};}catch{state=newState()}
 state.schedules=Array.isArray(state.schedules)?state.schedules:[];
 state.xpHistory=Array.isArray(state.xpHistory)?state.xpHistory:[];
@@ -13,6 +16,7 @@ state.customAchievements=Array.isArray(state.customAchievements)?state.customAch
 state.unlocked=Array.isArray(state.unlocked)?state.unlocked:[];
 state.lastBackup=state.lastBackup||null;
 state.inbox=Array.isArray(state.inbox)?state.inbox:[];
+state.v8=normalizeV8(state.v8);
 state.settings={...newState().settings,...state.settings};
 let tab='dashboard',toastTimer;
 const inboxUnread=()=>state.inbox.filter(n=>!n.read).length;
@@ -57,7 +61,7 @@ function syncDay(){
 
 function updateRecord(){state.records[today()]={...(state.records[today()]||{}),quests:state.quests.map(q=>({...q})),type:getCycle()}}
 const progress=()=>levelFor(state.xp);
-const nav=[['inbox','♧','Notices'],['analytics','▥','Analytics'],['dashboard','⌂','Overview'],['quests','▣','Quests'],['planner','◷','Planner'],['status','◈','Status'],['rewards','✦','Rewards'],['settings','⚙','Settings']];
+const nav=[['habits','◉','Habits'],['inbox','♧','Notices'],['analytics','▥','Analytics'],['dashboard','⌂','Overview'],['quests','▣','Quests'],['planner','◷','Planner'],['status','◈','Status'],['rewards','✦','Rewards'],['settings','⚙','Settings']];
 function questHtml(q){return `<div class="quest ${q.done?'done':''}"><div class="quest-main"><strong>${safe(q.title)}</strong><small>${safe(q.stat)} · ${q.scheduled?'Scheduled quest':q.mode==='custom'?'Personal quest':'Daily mission'}${q.deadline?' · Due '+safe(q.deadline):''}</small></div><span class="xp">+${q.xp} XP</span><button class="btn small ${q.done?'secondary':''}" data-action="quest" data-id="${safe(q.id)}" ${q.done?'disabled':''}>${q.done?'✓ Done':'Complete'}</button></div>`}
 const percent=(a,b)=>Math.min(100,Math.max(0,Math.round(a/b*100)));
 function streak(){let n=0;let d=new Date(today()+'T12:00:00');if(!state.records[today()]?.quests?.some(q=>q.done))d.setDate(d.getDate()-1);for(let i=0;i<365;i++){let key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;if(!state.records[key]?.quests?.some(q=>q.done))break;n++;d.setDate(d.getDate()-1)}return n}
@@ -76,13 +80,13 @@ function achievementEditor(){return `<div class="section-head"><h2>Custom achiev
 function pageAnalytics(){const days=Array.from({length:7},(_,i)=>dateShift(today(),i-6));const counts=days.map(day=>{let quests=state.records[day]?.quests||[];return {day,done:quests.filter(q=>q.done).length,total:quests.length}});const max=Math.max(1,...counts.map(d=>d.total));const xp7=(state.xpHistory||[]).filter(e=>e.date.slice(0,10)>=days[0]).reduce((a,e)=>a+Number(e.xp||0),0);const all=questTotals();return `<div class="section-head"><h2>Hunter analytics</h2><span class="pill">Last seven days</span></div><div class="grid three"><section class="panel stat-tile"><div class="eyebrow">Weekly XP</div><div class="number">${xp7}</div></section><section class="panel stat-tile"><div class="eyebrow">Quests completed</div><div class="number">${all.done}</div></section><section class="panel stat-tile"><div class="eyebrow">Completion rate</div><div class="number">${all.total?percent(all.done,all.total):0}%</div></section></div><section class="panel"><h3>Seven-day activity</h3><div class="activity-chart">${counts.map(d=>`<div class="chart-col"><span>${d.done}/${d.total}</span><div class="chart-track"><i style="height:${d.total?Math.max(5,100*d.done/max):0}%"></i></div><small>${new Date(d.day+'T12:00:00').toLocaleDateString(undefined,{weekday:'short'})}</small></div>`).join('')}</div><p class="footnote">Days without saved assignments show 0/0; this is not treated as a failure.</p></section><section class="panel"><h3>Recovery queue</h3><p>${state.penalties.filter(p=>!p.done).length} pending · ${state.penalties.filter(p=>p.done).length} resolved or excused</p><h3>Recent XP awards</h3>${(state.xpHistory||[]).slice(0,12).map(e=>`<div class="log-item"><span>${safe(e.source)}</span><strong>+${Number(e.xp)||0} XP</strong></div>`).join('')||'<p class="empty">No XP history yet.</p>'}</section>`}
 function showLevelUp(){window.SystemAudio?.play('level');const lvl=state.pendingLevel;state.pendingLevel=null;save();const overlay=document.createElement('div');overlay.className='level-overlay';overlay.innerHTML=`<section class="level-card" role="alertdialog" aria-label="Level up"><div class="eyebrow">[ SYSTEM NOTIFICATION ]</div><div class="level-glyph">✦</div><h2>LEVEL UP</h2><div class="level-number">${lvl}</div><p>Your effort has unlocked the next level.</p><button class="btn" id="dismiss-level">CONTINUE</button></section>`;document.body.append(overlay);overlay.querySelector('button').focus();overlay.querySelector('button').onclick=()=>overlay.remove();}
 
-function shell(){syncDay();let title=tab==='dashboard'?'Awakening dashboard':nav.find(n=>n[0]===tab)?.[2];let pages={inbox:pageInbox,analytics:pageAnalytics,dashboard:pageDashboard,quests:pageQuests,planner:pagePlanner,status:pageStatus,rewards:pageRewards,settings:pageSettings};$('#app').innerHTML=`<div class="app-shell"><aside class="side"><div class="brand">THE SYSTEM<span>AWAKENING</span></div><div class="nav">${nav.map(([id,ico,name])=>`<button class="nav-item ${tab===id?'active':''}" data-tab="${id}"><span>${ico}</span>${name}</button>`).join('')}</div></aside><main class="main"><div class="topline"><span class="system-tag">◈ THE SYSTEM</span><span>${safe(title)} · ${new Date().toLocaleDateString()} · ${inboxUnread()} unread notices</span></div>${pages[tab]()}</main><nav class="bottom-nav" aria-label="Main navigation">${nav.map(([id,ico,name])=>`<button class="${tab===id?'active':''}" data-tab="${id}"><span class="ico">${ico}</span>${name}</button>`).join('')}</nav></div>`}
+function shell(){syncDay();let title=tab==='dashboard'?'Awakening dashboard':nav.find(n=>n[0]===tab)?.[2];let pages={habits:pageHabits,inbox:pageInbox,analytics:pageAnalytics,dashboard:pageDashboard,quests:pageQuests,planner:pagePlanner,status:pageStatus,rewards:pageRewards,settings:pageSettings};$('#app').innerHTML=`<div class="app-shell"><aside class="side"><div class="brand">THE SYSTEM<span>AWAKENING</span></div><div class="nav">${nav.map(([id,ico,name])=>`<button class="nav-item ${tab===id?'active':''}" data-tab="${id}"><span>${ico}</span>${name}</button>`).join('')}</div></aside><main class="main"><div class="topline"><span class="system-tag">◈ THE SYSTEM</span><span>${safe(title)} · ${new Date().toLocaleDateString()} · ${inboxUnread()} unread notices</span></div>${pages[tab]()}</main><nav class="bottom-nav" aria-label="Main navigation">${nav.map(([id,ico,name])=>`<button class="${tab===id?'active':''}" data-tab="${id}"><span class="ico">${ico}</span>${name}</button>`).join('')}</nav></div>`}
 function onboard(){document.querySelector('#app').innerHTML=`<main class="onboarding"><section class="panel onboarding-card"><header><div class="crest">✦</div><div class="eyebrow">SYSTEM NOTIFICATION</div><h1>THE AWAKENING</h1><p>Every quest is a choice. Every action shapes your story.</p></header><form id="start-form"><div class="field"><label for="name">What should the System call you?</label><input class="input" id="name" maxlength="50" placeholder="Hunter name" required autofocus></div><div class="form-row"><div class="field"><label for="startweight">Starting weight (kg)</label><input class="input" id="startweight" type="number" min="20" max="500" step="0.1" value="99" required></div><div class="field"><label for="goalweight">Personal goal (kg)</label><input class="input" id="goalweight" type="number" min="20" max="500" step="0.1" value="68" required></div></div><p class="footnote">You can update these anytime. Quests combine physical movement, study and personal discipline. Modify or skip exercise to suit your health and abilities.</p><button class="btn" style="width:100%" type="submit">ACCEPT THE SYSTEM</button></form></section></main>`}
 function render(){state.name?shell():onboard();if(state.pendingLevel&&state.name)showLevelUp()}
 $('#app').addEventListener('click',async e=>{const b=e.target.closest('[data-tab],[data-action]');if(!b)return;if(b.dataset.tab){tab=b.dataset.tab;render();return}const id=b.dataset.id;switch(b.dataset.action){case 'test-sound':{window.SystemAudio?.play(b.dataset.sound||'test');break}case 'read-notice':{const notice=state.inbox.find(n=>n.id===id);if(notice){notice.read=true;save();render()}break}case 'read-all':{state.inbox.forEach(n=>n.read=true);save();render();break}case 'clear-read':{state.inbox=state.inbox.filter(n=>!n.read);save();render();break}case 'test-alert':{showSystemAlert('SYSTEM NOTICE','Your daily quest reminder is ready.');break}case 'quest':{let q=state.quests.find(q=>q.id===id);if(!q||q.done)return;q.done=true;award(q.xp,q.stat,q.title);updateRecord();save();render();notify(`Quest complete! +${q.xp} XP`);break}case 'toggle-schedule':{const q=state.schedules.find(x=>x.id===id);if(q){q.active=q.active===false;save();render();notify('Schedule updated')}break}
 case 'delete-schedule':{if(confirm('Delete this recurring schedule? Existing quest records will remain.')){state.schedules=state.schedules.filter(x=>x.id!==id);save();render()}break}
 case 'excuse':{const q=state.penalties.find(x=>x.id===id);if(q&&!q.done){q.done=true;q.excused=true;log('Recovery task excused');save();render();notify('Task excused')}break}
-case 'penalty':{let q=state.penalties.find(q=>q.id===id);if(q){q.done=true;log('Penalty resolved');save();render();notify('Penalty cleared')}}break;case 'export':{state.lastBackup=new Date().toISOString();save();const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`the-system-backup-${today()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);break}case 'delete-achievement':{state.customAchievements=state.customAchievements.filter(a=>a.id!==id);save();render();break}case 'reset':if(confirm('Erase all local System progress? Export a backup first.')){localStorage.removeItem(KEY);state=newState();tab='dashboard';render()}break}});
+case 'penalty':{let q=state.penalties.find(q=>q.id===id);if(q){q.done=true;log('Penalty resolved');save();render();notify('Penalty cleared')}}break;case 'export':{state.lastBackup=new Date().toISOString();save();const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`the-system-backup-${today()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);break}case 'delete-achievement':{state.customAchievements=state.customAchievements.filter(a=>a.id!==id);save();render();break}case 'reset':if(confirm('Erase all local System progress? Export a backup first.')){localStorage.removeItem(KEY);state=newState();state.v8=normalizeV8(null);tab='dashboard';render()}break}});
 $('#app').addEventListener('submit',e=>{e.preventDefault();const id=e.target.id;if(id==='start-form'){state.name=$('#name').value.trim();if(!state.name)return;state.weight=Number($('#startweight').value);state.goal=Number($('#goalweight').value);state.weighIns.push({date:today(),weight:state.weight});log('Awakening accepted');save();render()}else if(id==='schedule-form'){
  const title=$('#sched-title').value.trim(),repeat=$('#sched-repeat').value,start=$('#sched-start').value;
  if(!title||!/^\d{4}-\d{2}-\d{2}$/.test(start))return;
@@ -91,7 +95,8 @@ $('#app').addEventListener('submit',e=>{e.preventDefault();const id=e.target.id;
  if(applies(entry,today())&&!state.quests.some(q=>q.id==='schedule-'+entry.id)){state.quests.push(scheduledFor(today()).find(q=>q.id==='schedule-'+entry.id));updateRecord()}
  save();render();notify('Mission scheduled');
  }else if(id==='achievement-form'){const title=$('#achievement-title').value.trim(),target=Number($('#achievement-target').value),metric=$('#achievement-metric').value;if(!title||!Number.isInteger(target)||target<1||target>100000)return;state.customAchievements.push({id:crypto.randomUUID(),title,metric,target});save();render();notify('Achievement added')}else if(id==='quest-form'){const title=$('#qtitle').value.trim();if(!title)return;state.quests.push({id:crypto.randomUUID(),title,stat:$('#qstat').value,xp:Number($('#qxp').value),mode:'custom',done:false});updateRecord();save();render();notify('Quest added')}else if(id==='weight-form'){let v=Number($('#weight').value);if(!Number.isFinite(v)||v<20||v>500)return;state.weight=v;state.weighIns.push({date:today(),weight:v});log(`Weigh-in recorded: ${v} kg`);save();render();notify('Weigh-in saved')}else if(id==='alert-form'){state.settings={...state.settings,reminders:$('#enable-reminders').checked,reminderTime:$('#reminder-time').value||'20:00',morningTime:$('#morning-time').value||'08:00',morningReminders:$('#morning-reminders').checked,penaltiesEnabled:$('#enable-penalties').checked,deadlineAlerts:$('#deadline-alerts').checked,deadlineLead:Number($('#deadline-lead').value)};save();render();notify('Alert preferences saved');if(state.settings.reminders||state.settings.morningReminders||state.settings.deadlineAlerts)requestNotifications();}else if(id==='settings-form'){state.name=$('#setname').value.trim()||state.name;state.goal=Number($('#setgoal').value)||state.goal;save();render();notify('Settings saved')}});
-$('#app').addEventListener('change',async e=>{if(e.target.id!=='import-file')return;const file=e.target.files?.[0];if(!file)return;try{let obj=JSON.parse(await file.text());if(!obj||typeof obj.name!=='string'||!Array.isArray(obj.weighIns)||!Array.isArray(obj.quests)||!Number.isFinite(obj.xp))throw Error('Invalid System backup');if(!confirm('Replace all current progress with this backup?'))return;state={...newState(),...obj};state.settings={...newState().settings,...state.settings};state.schedules=Array.isArray(state.schedules)?state.schedules:[];state.xpHistory=Array.isArray(state.xpHistory)?state.xpHistory:[];state.customAchievements=Array.isArray(state.customAchievements)?state.customAchievements:[];state.unlocked=Array.isArray(state.unlocked)?state.unlocked:[];state.inbox=Array.isArray(state.inbox)?state.inbox:[];save();render();notify('Backup imported')}catch(err){notify('Backup could not be imported')}});
+$('#app').addEventListener('change',async e=>{if(e.target.id!=='import-file')return;const file=e.target.files?.[0];if(!file)return;try{let obj=JSON.parse(await file.text());if(!obj||typeof obj.name!=='string'||!Array.isArray(obj.weighIns)||!Array.isArray(obj.quests)||!Number.isFinite(obj.xp))throw Error('Invalid System backup');if(!confirm('Replace all current progress with this backup?'))return;state={...newState(),...obj};state.settings={...newState().settings,...state.settings};state.schedules=Array.isArray(state.schedules)?state.schedules:[];state.xpHistory=Array.isArray(state.xpHistory)?state.xpHistory:[];state.customAchievements=Array.isArray(state.customAchievements)?state.customAchievements:[];state.unlocked=Array.isArray(state.unlocked)?state.unlocked:[];state.inbox=Array.isArray(state.inbox)?state.inbox:[];
+state.v8=normalizeV8(state.v8);save();render();notify('Backup imported')}catch(err){notify('Backup could not be imported')}});
 async function requestNotifications(){if('Notification'in window&&Notification.permission==='default')try{await Notification.requestPermission()}catch{}}
 function showSystemAlert(title,body,kind='reminder',key=''){if(!addInbox(title,body,kind,key))return;notify(`${title}: ${body}`);if('Notification'in window&&Notification.permission==='granted'&&document.visibilityState==='visible')try{new Notification(title,{body,icon:'./assets/icon.svg',tag:'the-system-daily'})}catch{}}
 function checkMorningReminder(){
@@ -132,4 +137,303 @@ pageSettings=function(){return originalPageSettings()+`<div class="section-head"
 $('#app').addEventListener('click',async e=>{const el=e.target.closest('[data-action]');if(!el||!['push-enable','push-disable','push-test'].includes(el.dataset.action))return;try{el.disabled=true;if(el.dataset.action==='push-enable'){await pushEnable();notify('Background push enabled')}else if(el.dataset.action==='push-disable'){await pushDisable();notify('Background push disabled')}else{await pushRequest('/api/test');notify('Test push requested')}render()}catch(err){notify(err.message||'Push action failed')}finally{el.disabled=false}},true);
 $('#app').addEventListener('submit',e=>{if(e.target.id==='alert-form')setTimeout(pushSync,100)},false);
 
+
+// V8 — daily habits and optional fitness journal; no sexual habit data stored or transmitted.
+const v8TodayWater=()=>Math.max(0,Number(state.v8.water[today()]||0));
+const v8Goal=()=>state.v8.waterGoal;
+const v8Dates=()=>Object.keys(state.v8.water).filter(d=>Number(state.v8.water[d])>=v8Goal()).length;
+const v8SafeCount=(arr,condition)=>arr.filter(condition).length;
+function v8Milestones(){
+ const recordDays=Object.entries(state.records).filter(([d,r])=>(r.quests||[]).some(q=>q.done)).length;
+ const exerciseDays=new Set(state.v8.fitness.map(f=>f.date)).size;
+ const recoveryDays=Object.values(state.v8.recovery).filter(Boolean).length;
+ const reflectionDays=new Set(state.v8.reflections.map(r=>r.date)).size;
+ return [{label:'Hydration consistency',done:v8Dates(),required:7,detail:'Reach your chosen hydration target on 7 different days'},
+ {label:'Measured training',done:exerciseDays,required:5,detail:'Record 5 separate days of controlled fitness sessions'},
+ {label:'Recovery mastery',done:recoveryDays,required:3,detail:'Log 3 recovery days, including gentle rest'},
+ {label:'Quest discipline',done:recordDays,required:10,detail:'Finish at least one quest on 10 different days'},
+ {label:'Hunter reflection',done:reflectionDays,required:4,detail:'Write a short check-in on 4 different days'}];
+}
+function pageHabits(){
+ const water=v8TodayWater(),goal=v8Goal(),pct=percent(water,goal),fitness=state.v8.fitness.slice().reverse().slice(0,8),rank=rankFor(state.weight),trials=v8Milestones(),eligible=rank==='S'&&trials.every(x=>x.done>=x.required);
+ return `<div class="section-head"><h2>Daily Habits</h2><span class="pill">V8 · Reclamation</span></div>
+ <div class="grid two"><section class="panel"><div class="eyebrow">HYDRATION PROTOCOL</div><div class="big-stat">${water}<span> / ${goal} ml</span></div><div class="progress"><i style="width:${pct}%"></i></div><p>${pct>=100?'Daily target met. Extra water does not earn extra XP.':'Add the water you drink as you go. No need to force extra water.'}</p><div class="top-actions"><button class="btn small" data-action="water" data-amount="150">+150 ml</button><button class="btn small" data-action="water" data-amount="250">+250 ml</button><button class="btn small" data-action="water" data-amount="500">+500 ml</button><button class="btn small secondary" data-action="water-undo">Undo last</button></div><form id="water-goal-form" style="margin-top:14px"><label for="water-goal">Personal daily target (ml)</label><div class="form-row"><input class="input" type="number" id="water-goal" min="500" max="5000" step="50" value="${goal}" required><button class="btn secondary" type="submit">Save target</button></div></form><p class="footnote">Water requirements vary. Drinks and water in food also contribute to hydration. The target is adjustable; avoid excessive intake. Hydration reward is capped at 10 XP once per day.</p></section>
+ <section class="panel"><div class="eyebrow">RECOVERY LOG</div><h3>Rest counts as progress</h3><p>Recovery can mean rest, gentle mobility, or taking a lighter day. No forced exercise or penalty.</p><button class="btn ${state.v8.recovery[today()]?'secondary':''}" data-action="recovery" ${state.v8.recovery[today()]?'disabled':''}>${state.v8.recovery[today()]?'✓ Recovery logged today':'Log a recovery check-in'}</button><p class="footnote">${Object.values(state.v8.recovery).filter(Boolean).length} recovery days recorded. One 5 XP check-in per day.</p></section></div>
+ <div class="section-head"><h2>Hunter evolution</h2></div><section class="panel"><p>Track your actual repetitions and effort. These are private measurements; no XP farming from repeated entries. Stop if you lose balance or technique.</p><form id="fitness-form"><div class="form-row"><div class="field"><label for="fit-type">Exercise</label><select id="fit-type" class="input"><option>Supported squats</option><option>Squats</option><option>Push-ups</option><option>Incline push-ups</option><option>Knee push-ups</option><option>Crunches</option><option>Walking</option><option>Other</option></select></div><div class="field"><label for="fit-reps">Reps or minutes</label><input class="input" id="fit-reps" type="number" min="1" max="1000" required placeholder="e.g. 8"></div></div><div class="form-row"><div class="field"><label for="fit-effort">Effort</label><select class="input" id="fit-effort"><option value="easy">Easy</option><option value="moderate" selected>Moderate</option><option value="hard">Hard but controlled</option></select></div><div class="field"><label for="fit-note">Note (optional)</label><input class="input" id="fit-note" maxlength="140" placeholder="Technique / rest taken"></div></div><button class="btn" type="submit">Save training record</button></form><div class="section-head"><h3>Recent training</h3></div>${fitness.length?fitness.map(f=>`<div class="log-item"><span>${safe(f.date)} · ${safe(f.type)} · ${safe(f.effort)}${f.note?' · '+safe(f.note):''}</span><b>${Number(f.reps)} ${f.type==='Walking'?'min':'reps'}</b></div>`).join(''):'<p class="empty">Your training journal starts with your next safe session.</p>'}</section>
+ <div class="section-head"><h2>Hunter reflection</h2></div><section class="panel"><p>A short note about energy, training technique, or what you learned. No sensitive personal details required.</p><form id="reflection-form"><label for="reflect-note">Today’s observation</label><input id="reflect-note" class="input" maxlength="200" required placeholder="e.g. Squats felt more controlled with longer rest"><button type="submit" class="btn" style="margin-top:12px" ${state.v8.reflections.some(r=>r.date===today())?'disabled':''}>${state.v8.reflections.some(r=>r.date===today())?'✓ Reflected today':'Record today’s reflection'}</button></form><p class="footnote">One reflection per day. No XP rewards for repeat submissions.</p></section>
+ <div class="section-head"><h2>${rank==='S'?'Classified transmission':'Classified objectives'}</h2></div><section class="panel">${rank!=='S'?`<div class="eyebrow">[ ACCESS RESTRICTED ]</div><h3>Further instructions are sealed.</h3><p>Continue growing at your own pace. The System will reveal what comes next if you qualify.</p>`:state.v8.ascended?`<div class="eyebrow">[ ASCENSION COMPLETE ]</div><h3>♛ ECLIPSE SOVEREIGN</h3><p>The hidden rank has been permanently unlocked. Continue your journey at your own pace.</p>`:`<div class="eyebrow">[ S-RANK VERIFIED · SPECIAL QUESTLINE ]</div><h3>THE FIVE TRIALS</h3><p>XP alone will not unlock the classified rank. No speedrunning or extra repetitions required.</p>${trials.map(x=>`<div class="trial"><div class="spread"><strong>${safe(x.label)}</strong><span class="pill ${x.done>=x.required?'green':''}">${Math.min(x.done,x.required)}/${x.required}</span></div><small>${safe(x.detail)}</small><div class="progress"><i style="width:${percent(x.done,x.required)}%"></i></div></div>`).join('')}<button class="btn" data-action="ascend" ${eligible?'':'disabled'}>${eligible?'Complete the final ascension':'Complete all five trials to unlock'}</button>`}</section>`;
+}
+// Capture V8 actions before the existing V7 button handler.
+$('#app').addEventListener('click',e=>{const b=e.target.closest('[data-action]');if(!b)return;const act=b.dataset.action;if(!['water','water-undo','recovery','ascend'].includes(act))return;e.stopImmediatePropagation();
+ if(act==='water'){const amt=Number(b.dataset.amount);if(![150,250,500].includes(amt))return;const old=v8TodayWater(),next=Math.min(8000,old+amt);state.v8.water[today()]=next;state.v8.lastWater={date:today(),amount:next-old};if(old<v8Goal()&&next>=v8Goal()&&!state.v8.waterAwarded?.[today()]){state.v8.waterAwarded={...(state.v8.waterAwarded||{}),[today()]:true};award(10,'discipline','Hydration goal completed')}save();render();notify(`Water: ${next} ml`)}
+ if(act==='water-undo'){const prev=state.v8.lastWater;if(prev?.date!==today()||!prev.amount)return notify('Nothing to undo today');state.v8.water[today()]=Math.max(0,v8TodayWater()-prev.amount);state.v8.lastWater=null;save();render();notify('Last water entry undone; any earned XP is retained')}
+ if(act==='recovery'){if(state.v8.recovery[today()])return;state.v8.recovery[today()]=true;award(5,'agility','Recovery check-in');save();render();notify('Recovery logged')}
+ if(act==='ascend'){if(state.v8.ascended||rankFor(state.weight)!=='S'||!v8Milestones().every(x=>x.done>=x.required))return;state.v8.ascended=true;state.v8.ascendedAt=new Date().toISOString();log('ECLIPSE SOVEREIGN ascension');addInbox('CLASSIFIED ASCENSION','The five trials are complete. ECLIPSE SOVEREIGN unlocked.','achievement','v8-ascension');save();render();window.SystemAudio?.play('level');notify('♛ ECLIPSE SOVEREIGN · ASCENSION COMPLETE')}
+},true);
+$('#app').addEventListener('submit',e=>{const id=e.target.id;if(!['water-goal-form','fitness-form','reflection-form'].includes(id))return;e.preventDefault();e.stopImmediatePropagation();
+ if(id==='water-goal-form'){const val=Number($('#water-goal').value);if(!Number.isFinite(val)||val<500||val>5000)return notify('Choose a goal from 500 to 5000 ml');state.v8.waterGoal=val;save();render();notify('Hydration goal updated')}
+ if(id==='fitness-form'){const reps=Number($('#fit-reps').value),type=$('#fit-type').value,effort=$('#fit-effort').value,note=$('#fit-note').value.trim();if(!Number.isInteger(reps)||reps<1||reps>1000)return;state.v8.fitness.push({date:today(),type,reps,effort,note});state.v8.fitness=state.v8.fitness.slice(-500);save();render();notify('Training record saved')}
+ if(id==='reflection-form'){if(state.v8.reflections.some(r=>r.date===today()))return;const note=$('#reflect-note').value.trim();if(!note)return;state.v8.reflections.push({date:today(),note});state.v8.reflections=state.v8.reflections.slice(-365);award(5,'discipline','Daily reflection');save();render();notify('Reflection saved')}
+},true);
+
 render();document.addEventListener('visibilitychange',()=>{if(!document.hidden){syncDay();render();checkDailyReminder();checkMorningReminder();checkQuestDeadlines()}});setInterval(()=>{syncDay();checkDailyReminder();checkMorningReminder();checkQuestDeadlines()},60000);checkDailyReminder();checkMorningReminder();checkQuestDeadlines();if('serviceWorker'in navigator&&location.protocol!=='file:')window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+
+
+/* ===== V8.5 HUNTER AWAKENING ===== */
+const APP_PUBLIC_VERSION='1.08.5';
+function normalizeV85(input){
+ const x=input&&typeof input==='object'?input:{};
+ return {
+  initialized:!!x.initialized,
+  profile:(x.profile&&typeof x.profile==='object')?x.profile:{objective:'hybrid',fitnessLevel:'beginner',duration:20,equipment:'none',freeDays:[1,3,5],weeklyStepGoal:35000},
+  steps:(x.steps&&typeof x.steps==='object')?x.steps:{},
+  stepAwards:(x.stepAwards&&typeof x.stepAwards==='object')?x.stepAwards:{},
+  weeklyStepAwards:(x.weeklyStepAwards&&typeof x.weeklyStepAwards==='object')?x.weeklyStepAwards:{},
+  events:(x.events&&typeof x.events==='object')?x.events:{},
+  supportTotal:Number.isFinite(Number(x.supportTotal))?Number(x.supportTotal):0
+ };
+}
+state.v85=normalizeV85(state.v85);
+if(state.name && !state.v85.initialized){
+ state.v85.initialized=true;
+ state.v85.profile={...state.v85.profile,objective:'hybrid',fitnessLevel:'beginner',duration:20,equipment:'none',freeDays:[1,3,5],weeklyStepGoal:state.v85.profile.weeklyStepGoal||35000};
+ save();
+}
+const nav85=[['home','⌂','Home'],['quests','▣','Quests'],['growth','✦','Growth'],['hunter','◈','Hunter']];
+if(!nav85.some(n=>n[0]===tab))tab='home';
+const dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const todayWeekday=()=>weekday(today());
+function weekStart(date=today()){
+ const d=new Date(date+'T12:00:00');
+ const diff=(d.getDay()+6)%7; // Monday start
+ d.setDate(d.getDate()-diff);
+ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function weekDates(date=today()){
+ const s=weekStart(date);
+ return Array.from({length:7},(_,i)=>dateShift(s,i));
+}
+function weekKey(date=today()){return weekStart(date)}
+function weeklyStepGoal(){return Number(state.v85.profile.weeklyStepGoal||35000)}
+function stepsFor(date=today()){return Math.max(0,Number(state.v85.steps[date]||0))}
+function stepTotalForWeek(date=today()){
+ return weekDates(date).reduce((a,d)=>a+stepsFor(d),0)
+}
+function dailyStepShare(){return Math.max(1500,Math.round(weeklyStepGoal()/7))}
+function ensureStepAwards(forDate=today()){
+ const dailyKey=forDate;
+ if(stepsFor(forDate)>=dailyStepShare() && !state.v85.stepAwards[dailyKey]){
+  state.v85.stepAwards[dailyKey]=true;
+  award(10,'endurance','Daily movement goal reached');
+  log(`Daily movement goal reached: ${stepsFor(forDate)} steps`);
+ }
+ const wk=weekKey(forDate);
+ if(stepTotalForWeek(forDate)>=weeklyStepGoal() && !state.v85.weeklyStepAwards[wk]){
+  state.v85.weeklyStepAwards[wk]=true;
+  award(60,'endurance','Weekly step goal completed');
+  addInbox('HUNTER MOVEMENT COMPLETE',`You reached your weekly step goal of ${weeklyStepGoal().toLocaleString()} steps.` ,'achievement','steps-'+wk);
+ }
+}
+function fitnessPreset(){
+ const lvl=state.v85.profile.fitnessLevel||'beginner';
+ return {
+  beginner:{push:'8 modified push-ups',core:'10 crunches',squat:'10 supported squats',walk:'10-minute walk',stretch:'10 minutes of mobility',xp:18},
+  intermediate:{push:'12 push-ups',core:'15 crunches',squat:'15 squats',walk:'15-minute walk or run',stretch:'12 minutes of mobility',xp:22},
+  advanced:{push:'20 push-ups',core:'20 crunches',squat:'20 squats',walk:'20-minute run or fast walk',stretch:'15 minutes of mobility',xp:26}
+ }[lvl]||{push:'8 modified push-ups',core:'10 crunches',squat:'10 supported squats',walk:'10-minute walk',stretch:'10 minutes of mobility',xp:18};
+}
+function hunterObjective(){return state.v85.profile.objective||'hybrid'}
+function isFreeDay(date=today()){
+ const free=(state.v85.profile.freeDays||[]).map(Number);
+ return free.includes(weekday(date));
+}
+function v85FreshQuests(date=today()){
+ const p=fitnessPreset();
+ const mode=cycleFor(date);
+ const obj=hunterObjective();
+ const free=isFreeDay(date);
+ const quests=[];
+ const add=(id,title,stat,xp)=>quests.push({id:`${id}-${date}`,title,stat,xp,mode:'adaptive',done:false});
+ if(obj==='fitness' || obj==='hybrid'){
+  if(mode==='training' && free){
+   add('push',p.push,'strength',p.xp);
+   add('core',p.core,'strength',p.xp);
+   add('squat',p.squat,'endurance',p.xp);
+   add('walk',p.walk,'endurance',p.xp+4);
+  }else{
+   add('stretch',p.stretch,'agility',18);
+   add('walk',p.walk,'endurance',20);
+  }
+ }
+ if(obj==='productivity' || obj==='hybrid'){
+  add('focus',`Focused work block · ${state.v85.profile.duration||20} minutes`,'intelligence',22);
+  add('plan','Plan tomorrow and tidy your space','discipline',15);
+ }
+ if(!quests.length)add('choice','Complete one intentional task that moves you forward','discipline',20);
+ const planned=scheduledFor(date).map(q=>({...q,id:`${q.id}-${date}`}));
+ return [...quests,...planned];
+}
+function eventTemplates(){
+ const baseDur=Math.max(10,Number(state.v85.profile.duration||20));
+ const lvl=state.v85.profile.fitnessLevel||'beginner';
+ const easy=lvl==='beginner';
+ return [
+  {title:'The Shadow Circuit',desc:`Move for ${Math.min(20,baseDur)} minutes and complete one short bodyweight circuit.`,xp:140,coins:35},
+  {title:'Treasure Route',desc:`Hit ${Math.max(2000,Math.round(dailyStepShare()*0.75)).toLocaleString()} extra steps before midnight.`,xp:120,coins:28},
+  {title:'Recovery Gate',desc:`Complete 12 minutes of mobility and log a recovery note.`,xp:110,coins:24},
+  {title:easy?'Beginner Breakthrough':'Boss Interval',desc:easy?'Complete one beginner-friendly workout with controlled form.':'Complete an advanced bonus set or focused interval block.',xp:easy?130:180,coins:easy?30:42}
+ ];
+}
+function ensureTodayEvent(){
+ const d=today();
+ if(state.v85.events[d])return state.v85.events[d];
+ if(!isFreeDay(d))return null;
+ const hash=[...d].reduce((a,c)=>a+c.charCodeAt(0),0)%100;
+ if(hash>54)return null;
+ const pool=eventTemplates();
+ const tmpl=pool[hash%pool.length];
+ const ev={id:crypto.randomUUID(),date:d,status:'pending',title:tmpl.title,desc:tmpl.desc,xp:tmpl.xp,coins:tmpl.coins};
+ state.v85.events[d]=ev;
+ addInbox('A GATE HAS OPENED',`${tmpl.title} is available today for bonus XP.`,'event','event-'+d);
+ save();
+ return ev;
+}
+const originalSyncDay=syncDay;
+syncDay=function(){
+ if(!state.name)return;
+ const date=today();if(state.cycleDay===date)return;
+ const start=state.cycleDay || state.created;
+ for(const [day,r] of Object.entries(state.records)){
+  if(day>=date||r.settled)continue;
+  const misses=(r.quests||[]).filter(q=>!q.done&&!q.excused);
+  if(misses.length&&state.settings?.penaltiesEnabled!==false){
+   const prior=state.penalties.filter(q=>!q.done).length;
+   state.penalties.push({id:crypto.randomUUID(),created:date,sourceDay:day,amount:misses.length,severity:prior>=3?'high':prior>=1?'medium':'low',title:`Recovery: ${misses.length} unfinished quest${misses.length===1?'':'s'} from ${day}`,task:prior>=3?'Complete a 15-minute planning and reset session':prior>=1?'Complete a 10-minute planning and reset session':'Review unfinished missions and write one actionable next step',done:false});
+   log(`${misses.length} unfinished quest(s) from ${day} added to recovery queue`);
+  }
+  r.settled=true;
+ }
+ const skipped=Math.max(0,dayGap(start,date)-1);
+ if(skipped)log(`${skipped} day(s) passed while the app was closed; no automatic penalties assigned`);
+ state.cycleDay=date;
+ const old=state.records[date];
+ state.quests=old?old.quests:v85FreshQuests(date);
+ updateRecord();
+ ensureTodayEvent();
+ ensureStepAwards(date);
+ save();
+}
+function splashOnce(){
+ if(document.querySelector('.splash-screen'))return;
+ const overlay=document.createElement('div');
+ overlay.className='splash-screen';
+ overlay.innerHTML=`<div class="splash-logo"><img src="assets/icon.svg" alt="The System logo" class="splash-mark"><div class="splash-title">THE SYSTEM</div><div class="splash-sub">AWAKEN YOUR POTENTIAL</div><div class="splash-loading">INITIALIZING SYSTEM...</div><div class="splash-footer">by Dynaframe Studios · v ${APP_PUBLIC_VERSION}</div></div>`;
+ document.body.append(overlay);
+ setTimeout(()=>overlay.classList.add('hide'),1100);
+ setTimeout(()=>overlay.remove(),1650);
+}
+function homeHero(){
+ const p=progress();
+ const done=state.quests.filter(q=>q.done).length;
+ const total=state.quests.length||1;
+ const ev=ensureTodayEvent();
+ return `<section class="panel hero"><div class="hero-inner"><div><div class="eyebrow">[ HUNTER AWAKENING ]</div><h1>Welcome back, ${safe(state.name)}</h1><p>Your System now adapts to your profile. Complete your missions, grow your stats, and answer the Gates when they appear.</p><p class="week-label">${getCycle()==='training'?'⚔ TRAINING BLOCK':'✧ RECOVERY BLOCK'} · ${safe(today())}</p></div><div class="crest">${rankFor(state.weight)}</div></div></section>
+ <div class="grid three"><section class="panel stat-tile"><div class="muted">LEVEL</div><div class="number">${p.level}</div><div class="progress"><i style="width:${percent(p.remaining,p.needed)}%"></i></div><small>${p.remaining}/${p.needed} XP</small></section><section class="panel stat-tile"><div class="muted">QUESTS TODAY</div><div class="number">${done}/${total}</div><small>${hunterObjective()} profile · ${isFreeDay(today())?'Free day':'Busy day'} plan</small></section><section class="panel stat-tile"><div class="muted">HUNTER COINS</div><div class="number">${state.coins}</div><small>Spend in future shop updates</small></section></div>
+ ${ev?`<div class="section-head"><h2>Live Gate Event</h2><span class="pill">Bonus XP</span></div>${eventCard(ev)}`:''}`;
+}
+function eventCard(ev){
+ if(!ev)return '';
+ const controls = ev.status==='completed' ? `<span class="pill green">Completed</span>` : ev.status==='declined' ? `<span class="pill red">Declined</span>` : ev.status==='accepted' ? `<div class="top-actions"><button class="btn" data-action="complete-event">Complete event</button><button class="btn secondary" data-action="decline-event">Skip</button></div>` : `<div class="top-actions"><button class="btn" data-action="accept-event">Accept event</button><button class="btn secondary" data-action="decline-event">Decline</button></div>`;
+ return `<section class="panel"><div class="spread"><div><div class="eyebrow">A GATE HAS OPENED</div><h3>${safe(ev.title)}</h3></div><span class="pill">+${ev.xp} XP · +${ev.coins} HC</span></div><p>${safe(ev.desc)}</p>${controls}<p class="footnote">Gate Events only appear on your selected free days. Ignoring or declining them never creates penalties.</p></section>`;
+}
+function pageHome85(){return homeHero()+`<div class="section-head"><h2>Today's missions</h2><button class="btn ghost" data-tab="quests">Open quest board →</button></div><section class="panel"><div class="list">${state.quests.slice(0,6).map(questHtml).join('')||'<p class="empty">No quests generated yet.</p>'}</div></section><div class="section-head"><h2>Recent activity</h2></div><section class="panel">${state.logs.slice(0,6).map(l=>`<div class="log-item"><span>${safe(l.msg)}</span><small>${new Date(l.date).toLocaleDateString()}</small></div>`).join('')||'<p class="empty">Your journey begins today.</p>'}</section>`}
+function pageQuests85(){
+ const activeEvent=ensureTodayEvent();
+ return `${activeEvent?`<div class="section-head"><h2>Gate Event</h2><span class="pill">Optional</span></div>${eventCard(activeEvent)}`:''}${pageQuests()}<div class="section-head"><h2>Mission scheduler</h2></div>${pagePlanner()}<div class="section-head"><h2>75-Day Trials</h2><span class="pill">Preview mode</span></div><section class="panel"><div class="grid three"><div class="trial"><strong>75 Adapt</strong><small>Beginner-friendly, recovery-aware challenge path.</small></div><div class="trial"><strong>75 Discipline</strong><small>Balanced mode across fitness, habits and focused work.</small></div><div class="trial"><strong>75 Ascension</strong><small>Advanced trial for experienced Hunters with stricter milestones.</small></div></div><p class="footnote">This build introduces the challenge structure and economy direction. Full trial progression logic is reserved for the next dedicated release.</p></section>`
+}
+function stepPanel(){
+ const days=weekDates();
+ const total=stepTotalForWeek();
+ const goal=weeklyStepGoal();
+ return `<div class="section-head"><h2>Hunter movement</h2><span class="pill">Manual step tracking</span></div><section class="panel"><div class="grid two"><div><div class="eyebrow">Weekly steps</div><div class="big-stat">${total.toLocaleString()} <span>/ ${goal.toLocaleString()}</span></div><div class="progress"><i style="width:${percent(total,goal)}%"></i></div><p>Daily share target: ${dailyStepShare().toLocaleString()} steps. Enter your current total for the day; later entries replace earlier totals.</p><form id="step-form"><div class="form-row"><div class="field"><label for="step-date">Date</label><input class="input" type="date" id="step-date" value="${today()}" required></div><div class="field"><label for="step-total">Daily total steps</label><input class="input" type="number" id="step-total" min="0" max="150000" step="1" value="${stepsFor(today())}" required></div></div><div class="form-row"><div class="field"><label for="weekly-step-goal">Weekly goal</label><select class="input" id="weekly-step-goal"><option value="14000" ${goal===14000?'selected':''}>14 000</option><option value="21000" ${goal===21000?'selected':''}>21 000</option><option value="35000" ${goal===35000?'selected':''}>35 000</option><option value="49000" ${goal===49000?'selected':''}>49 000</option><option value="70000" ${goal===70000?'selected':''}>70 000</option></select></div><div class="field"><label>&nbsp;</label><button class="btn" type="submit">Save step total</button></div></div></form></div><div><div class="eyebrow">This week</div>${days.map(d=>`<div class="log-item"><span>${new Date(d+'T12:00:00').toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})}</span><strong>${stepsFor(d).toLocaleString()}</strong></div>`).join('')}</div></div><p class="footnote">Daily movement awards 10 XP when you reach your daily share target. Reaching your weekly step goal awards 60 XP once per week.</p></section>`;
+}
+function economyPanel(){
+ return `<div class="section-head"><h2>Hunter economy</h2><span class="pill">V8.5 bridge</span></div><section class="panel"><div class="grid three"><div class="trial"><strong>Quest Reroll</strong><small>Planned shop item · refresh one generated mission.</small></div><div class="trial"><strong>Half-Reps Pass</strong><small>Planned flexibility item for supported challenge modes.</small></div><div class="trial"><strong>Cheat Meal Ticket</strong><small>Planned challenge exception item for trial variants.</small></div></div><p class="footnote">XP remains progression. Hunter Coins remain spendable in-game currency. Real-money support is kept separate and optional.</p></section>`;
+}
+function pageGrowth85(){
+ return `${stepPanel()}${pageHabits()}${pageStatus()}${pageAnalytics()}${economyPanel()}`;
+}
+function profileSummary(){
+ const p=state.v85.profile;
+ return `<div class="section-head"><h2>Hunter profile</h2><span class="pill">Public version ${APP_PUBLIC_VERSION}</span></div><section class="panel"><div class="grid two"><div><div class="eyebrow">Profile calibration</div><div class="log-item"><span>Objective</span><strong>${safe(p.objective)}</strong></div><div class="log-item"><span>Fitness level</span><strong>${safe(p.fitnessLevel)}</strong></div><div class="log-item"><span>Preferred session length</span><strong>${Number(p.duration)||20} min</strong></div><div class="log-item"><span>Equipment</span><strong>${safe(p.equipment)}</strong></div></div><div><div class="eyebrow">Availability</div>${(p.freeDays||[]).length?(p.freeDays||[]).map(d=>`<span class="pill" style="margin:0 6px 6px 0">${dayNames[Number(d)]}</span>`).join(''):'<p class="empty">No free days selected</p>'}<p class="footnote">These settings are currently established during onboarding. A full edit flow is planned for the next update.</p></div></div></section>`;
+}
+function supportPanel(){
+ return `<div class="section-head"><h2>Support The System</h2><span class="pill">Optional</span></div><section class="panel"><p>Support features and real-money contributions are being introduced carefully. Gameplay progression, XP and secret-rank access will never be sold.</p><div class="grid three"><div class="trial"><strong>R25 support</strong><small>Future one-time contribution</small></div><div class="trial"><strong>R50 support</strong><small>Future one-time contribution</small></div><div class="trial"><strong>Custom amount</strong><small>Future hosted checkout via a secure backend</small></div></div><p class="footnote">No live payment checkout is active in this build. Keep payment secrets and checkout verification on a backend service, not in the static app.</p></section>`;
+}
+function startupBranding(){
+ return `<div class="section-head"><h2>Application identity</h2><span class="pill">Dynaframe Studios</span></div><section class="panel"><div class="spread"><div><div class="eyebrow">Launch sequence</div><h3>THE SYSTEM</h3><p>Startup screen and footer branding now use the public version label for test distribution.</p></div><div class="pill">v ${APP_PUBLIC_VERSION}</div></div><p class="footnote">by Dynaframe Studios</p></section>`;
+}
+function pageHunter85(){
+ return `${profileSummary()}${startupBranding()}${supportPanel()}${pageSettings()}`;
+}
+const originalOnboard=onboard;
+onboard=function(){
+ document.querySelector('#app').innerHTML=`<main class="onboarding"><section class="panel onboarding-card"><header><img src="assets/icon.svg" alt="The System logo" style="width:86px;height:86px;margin:0 auto 18px;display:block"><div class="eyebrow">SYSTEM NOTIFICATION</div><h1>HUNTER AWAKENING</h1><p>The System now calibrates itself to each Hunter before assigning quests.</p></header><form id="start-form"><div class="field"><label for="name">What should the System call you?</label><input class="input" id="name" maxlength="50" placeholder="Hunter name" required autofocus></div><div class="form-row"><div class="field"><label for="startweight">Starting weight (kg)</label><input class="input" id="startweight" type="number" min="20" max="500" step="0.1" value="99" required></div><div class="field"><label for="goalweight">Personal goal (kg)</label><input class="input" id="goalweight" type="number" min="20" max="500" step="0.1" value="68" required></div></div><div class="form-row"><div class="field"><label for="hunter-objective">Primary focus</label><select class="input" id="hunter-objective"><option value="hybrid">Hybrid · fitness + productivity</option><option value="fitness">Fitness</option><option value="productivity">Productivity / study</option></select></div><div class="field"><label for="fitness-level">Current fitness level</label><select class="input" id="fitness-level"><option value="beginner">Beginner / rebuilding</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></div></div><div class="form-row"><div class="field"><label for="session-duration">Typical session length</label><select class="input" id="session-duration"><option value="10">10 min</option><option value="20" selected>20 min</option><option value="30">30 min</option><option value="45">45 min</option></select></div><div class="field"><label for="equipment-type">Equipment access</label><select class="input" id="equipment-type"><option value="none">None / bodyweight only</option><option value="basic">Basic home equipment</option><option value="gym">Gym access</option></select></div></div><div class="field"><label>Which days are usually free for extra training or random events?</label><div class="radio-row">${dayNames.map((d,i)=>`<label><input type="checkbox" name="freeDays" value="${i}" ${[1,3,5].includes(i)?'checked':''}> ${d.slice(0,3)}</label>`).join('')}</div></div><div class="form-row"><div class="field"><label for="weekly-steps">Weekly step goal</label><select class="input" id="weekly-steps"><option value="14000">14 000</option><option value="21000">21 000</option><option value="35000" selected>35 000</option><option value="49000">49 000</option><option value="70000">70 000</option></select></div><div class="field"><label for="water-goal-start">Daily hydration goal (ml)</label><select class="input" id="water-goal-start"><option value="1500">1500</option><option value="2000" selected>2000</option><option value="2500">2500</option><option value="3000">3000</option></select></div></div><p class="footnote">Progress stays on this device. You can skip, adapt or modify exercise to suit your health and ability. The System should challenge you, not injure you.</p><button class="btn" style="width:100%" type="submit">ACCEPT THE SYSTEM</button><p class="footnote" style="text-align:center;margin-top:14px">by Dynaframe Studios · v ${APP_PUBLIC_VERSION}</p></form></section></main>`
+}
+const originalRender=render;
+render=function(){
+ state.name?shell():onboard();
+ if(state.pendingLevel&&state.name)showLevelUp();
+}
+shell=function(){
+ syncDay();
+ const pages={home:pageHome85,quests:pageQuests85,growth:pageGrowth85,hunter:pageHunter85};
+ const title=nav85.find(n=>n[0]===tab)?.[2]||'Home';
+ $('#app').innerHTML=`<div class="app-shell"><aside class="side"><div class="brand">THE SYSTEM<span>by Dynaframe Studios · v ${APP_PUBLIC_VERSION}</span></div><div class="nav">${nav85.map(([id,ico,name])=>`<button class="nav-item ${tab===id?'active':''}" data-tab="${id}"><span>${ico}</span>${name}</button>`).join('')}</div></aside><main class="main"><div class="topline"><span class="system-tag">◈ THE SYSTEM</span><span>${safe(title)} · ${new Date().toLocaleDateString()} · ${inboxUnread()} unread notices</span></div>${pages[tab]()}</main><nav class="bottom-nav" aria-label="Main navigation">${nav85.map(([id,ico,name])=>`<button class="${tab===id?'active':''}" data-tab="${id}"><span class="ico">${ico}</span>${name}</button>`).join('')}</nav></div>`;
+};
+$('#app').addEventListener('click',e=>{
+ const b=e.target.closest('[data-action]');
+ if(!b)return;
+ if(b.dataset.action==='accept-event'){
+  const ev=ensureTodayEvent(); if(!ev)return; ev.status='accepted'; save(); render(); notify('Gate event accepted');
+ }
+ if(b.dataset.action==='decline-event'){
+  const ev=ensureTodayEvent(); if(!ev)return; ev.status='declined'; save(); render(); notify('Gate event declined');
+ }
+ if(b.dataset.action==='complete-event'){
+  const ev=ensureTodayEvent(); if(!ev||ev.status==='completed')return; ev.status='completed'; award(ev.xp,'endurance',ev.title); state.coins+=ev.coins; log(`Gate Event complete · ${ev.title}`); addInbox('GATE CLEARED',`${ev.title} cleared for +${ev.xp} XP and +${ev.coins} Hunter Coins.` ,'achievement','gate-'+today()); window.SystemAudio?.play('quest'); save(); render(); notify(`Gate cleared! +${ev.xp} XP`);
+ }
+},true);
+$('#app').addEventListener('submit',e=>{
+ if(e.target.id==='start-form'){
+  const form=e.target;
+  const checked=[...form.querySelectorAll('input[name="freeDays"]:checked')].map(i=>Number(i.value));
+  state.v85.initialized=true;
+  state.v85.profile={
+   objective:form.querySelector('#hunter-objective')?.value||'hybrid',
+   fitnessLevel:form.querySelector('#fitness-level')?.value||'beginner',
+   duration:Number(form.querySelector('#session-duration')?.value||20),
+   equipment:form.querySelector('#equipment-type')?.value||'none',
+   freeDays:checked.length?checked:[1,3,5],
+   weeklyStepGoal:Number(form.querySelector('#weekly-steps')?.value||35000)
+  };
+  state.v8.waterGoal=Number(form.querySelector('#water-goal-start')?.value||2000);
+  state.cycleDay=today();
+  state.quests=v85FreshQuests(today());
+  updateRecord();
+  ensureTodayEvent();
+  save();
+  setTimeout(()=>{render(); splashOnce();},0);
+ }
+ if(e.target.id==='step-form'){
+  e.preventDefault();
+  const date=$('#step-date').value; const total=Number($('#step-total').value); const goal=Number($('#weekly-step-goal').value);
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(total) || total<0)return notify('Enter a valid step total');
+  state.v85.steps[date]=Math.round(total);
+  state.v85.profile.weeklyStepGoal=goal;
+  ensureStepAwards(date);
+  save(); render(); notify('Step total saved');
+ }
+},false);
+render();
+splashOnce();
