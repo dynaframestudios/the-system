@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "za.co.dynaframe.thesystem",
+      "sha256_cert_fingerprints": [
+        "D4:AF:74:B7:1E:D9:84:18:9B:95:14:74:62:73:CC:4E:1D:FF:AA:90:9A:39:A7:45:2C:B4:A2:D9:52:3A:61:4B"
+      ]
+    }
+  }
+]
